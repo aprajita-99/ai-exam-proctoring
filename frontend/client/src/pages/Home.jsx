@@ -14,11 +14,11 @@ const Home = () => {
         {/* Header */}
         <nav className="flex items-center justify-between py-4 md:py-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-950 font-black shadow-lg shadow-white/10">
-              N
+            <div className="w-10 hx-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-950 font-black shadow-lg shadow-white/10">
+              P
             </div>
             <span className="text-xl font-bold tracking-widest text-white uppercase">
-              NexTest
+              ProCtrl
             </span>
           </div>
         </nav>
@@ -105,7 +105,7 @@ const Home = () => {
               NT
             </div>
             <p className="uppercase tracking-widest">
-              © 2024 NexTest Secure Assessment Systems.
+              © 2024 ProCtrl Secure Assessment Systems.
             </p>
           </div>
 
