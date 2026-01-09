@@ -41,7 +41,7 @@ const Home = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
             <Link to="/candidatelogin" className="w-full sm:w-auto">
-              <Button size="lg" className="px-10 h-14 w-full sm:w-64">
+              <Button size="lg" className="px-10 h-14 w-full sm:w-auto whitespace-nowrap">
                  Register / Login as Candidate
               </Button>
             </Link>
