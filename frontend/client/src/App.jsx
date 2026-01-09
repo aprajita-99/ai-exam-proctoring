@@ -18,13 +18,16 @@ import AdminRoute from "./routes/AdminRoute";
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import QuestionList from "./admin/pages/questions/QuestionList";
 import TestList from "./admin/pages/tests/TestList";
-import LiveMonitor from "./admin/pages/tests/LiveMonitor";
+import MonitoringHome from "./admin/pages/candidate monitoring/MonitoringHome";
 import TestResults from "./admin/pages/results/TestResults";
 import CreateQuestion from "./admin/pages/questions/CreateQuestion";
 import EditQuestion from "./admin/pages/questions/EditQuestion";
 import CreateTest from "./admin/pages/tests/CreateTest";
 import TestDetails from "./admin/pages/tests/TestDetails";
 import QuestionDetails from "./admin/pages/questions/QuestionDetails";
+import ActiveTests from "./admin/pages/candidate monitoring/ActiveTests";
+import PastTests from "./admin/pages/candidate monitoring/PastTests";
+import TestMonitoring from "./admin/pages/candidate monitoring/TestMonitoring";
 import CandidateLogin from "./pages/CandidateLogin";
 import CandidateDashboard from "./pages/CandidateDashboard";
 
@@ -66,7 +69,11 @@ function App() {
                 <Route path="tests" element={<TestList />} />
                 <Route path="tests/create" element={<CreateTest />} />
                 <Route path="tests/:id" element={<TestDetails />} />
-                <Route path="monitoring" element={<LiveMonitor />} />
+                <Route path="monitoring" element={<MonitoringHome />}>
+                  <Route path="active" element={<ActiveTests />} />
+                  <Route path="past" element={<PastTests />} />
+                </Route>
+                <Route path="monitoring/tests/:id" element={<TestMonitoring />} />
                 <Route path="results" element={<TestResults />} />
               </Route>
             </Route>
@@ -78,5 +85,3 @@ function App() {
 }
 
 export default App;
-
-

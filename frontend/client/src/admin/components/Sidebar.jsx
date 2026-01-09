@@ -47,7 +47,7 @@ const Sidebar = ({ onLogout }) => {
 
         <NavLink to="/admin/monitoring" className={navItemClass}>
           <Eye size={16} />
-          Live Monitoring
+          Candidate Monitoring
         </NavLink>
 
         <NavLink to="/admin/results" className={navItemClass}>
