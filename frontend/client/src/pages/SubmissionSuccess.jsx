@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Button, Textarea, Input } from "../components/UI";
 import { toast } from "react-toastify";
+import { useExam } from "../context/ExamContext";
+import api from "../services/api";
 
 const ratingOptions = [
   { value: 5, label: "Excellent" },
@@ -13,6 +15,7 @@ const ratingOptions = [
 
 const SubmissionSuccess = () => {
   const navigate = useNavigate();
+  const { examState } = useExam();
 
   const [candidate, setCandidate] = useState(null);
   const [rating, setRating] = useState(null);
@@ -42,7 +45,7 @@ const SubmissionSuccess = () => {
   /* ===============================
      SUBMIT FEEDBACK
   =============================== */
-  const handleSubmit = (e) => {
+  const submitFeedback = async (e) => {
     e.preventDefault();
 
     if (!rating) {
@@ -50,28 +53,29 @@ const SubmissionSuccess = () => {
       return;
     }
 
+    if (!examState?.attemptId) {
+      toast.error("Invalid session. Cannot submit feedback.");
+      return;
+    }
+
     setSubmitting(true);
 
-    const feedbackPayload = {
-      rating,
-      headline: headline.trim(),
-      comments: comments.trim(),
-      candidate: candidate?.email || "anonymous",
-      submittedAt: new Date().toISOString(),
-    };
-
     try {
-      localStorage.setItem(
-        "candidate_feedback",
-        JSON.stringify(feedbackPayload)
-      );
+      await api.post(`/attempts/feedback/${examState.attemptId}`, {
+        rating,
+        summary: headline.trim(),
+        additionalComment: comments.trim(),
+      });
 
       toast.success("Thank you for your feedback!");
 
-      // reset form
+      // reset form & navigate home
       setRating(null);
       setHeadline("");
       setComments("");
+
+      // Optionally redirect or allow user to stay
+      // navigate("/");
     } catch (err) {
       console.error("Feedback storage error:", err);
       toast.error("Unable to save feedback. Please try again.");
@@ -86,7 +90,6 @@ const SubmissionSuccess = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-5 gap-6">
-
         {/* LEFT */}
         <Card className="lg:col-span-3 p-8 bg-slate-900 border border-slate-800 shadow-2xl">
           <div className="flex items-start gap-4 mb-8">
@@ -117,7 +120,7 @@ const SubmissionSuccess = () => {
           </div>
 
           {/* FEEDBACK FORM */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={submitFeedback} className="space-y-6">
             <div>
               <p className="text-sm font-semibold text-slate-300 mb-3">
                 Overall Rating
@@ -216,4 +219,3 @@ const SubmissionSuccess = () => {
 };
 
 export default SubmissionSuccess;
-

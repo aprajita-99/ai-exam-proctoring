@@ -50,7 +50,6 @@ router.post("/join", async (req, res) => {
       });
     }
 
-
     /* ---------------- Email whitelist check ---------------- */
     const candidateEntry = test.allowedCandidates.find(
       (c) => c.email === email.toLowerCase().trim()
@@ -78,8 +77,7 @@ router.post("/join", async (req, res) => {
     /* ---------------- One-attempt enforcement ---------------- */
     if (candidateEntry.hasAttempted) {
       return res.status(409).json({
-        message:
-          "An attempt has already been recorded for this email address.",
+        message: "An attempt has already been recorded for this email address.",
       });
     }
 
@@ -91,40 +89,39 @@ router.post("/join", async (req, res) => {
       systemInfo,
       status: "joined",
     });
-    
+
     await test.save();
 
     /* ---------------- Respond ---------------- */
     res.json({
-  attemptId: attempt._id,
-  test: {
-    title: test.title,
-    duration: test.duration,
-    questions: test.questions.map((q) => ({
-      _id: q._id,
-      questionText: q.questionText,
-      type: q.type,
-      marks: q.marks,
+      attemptId: attempt._id,
+      test: {
+        title: test.title,
+        duration: test.duration,
+        questions: test.questions.map((q) => ({
+          _id: q._id,
+          questionText: q.questionText,
+          type: q.type,
+          marks: q.marks,
 
-      mcq: q.type === "mcq" ? q.mcq : undefined,
-      descriptive: q.type === "descriptive" ? q.descriptive : undefined,
+          mcq: q.type === "mcq" ? q.mcq : undefined,
+          descriptive: q.type === "descriptive" ? q.descriptive : undefined,
 
-      coding:
-        q.type === "coding"
-          ? {
-              problemStatement: q.coding.problemStatement,
-              constraints: q.coding.constraints,
-              inputFormat: q.coding.inputFormat,
-              outputFormat: q.coding.outputFormat,
-              sampleTestCases: q.coding.sampleTestCases,
-              supportedLanguages: q.coding.supportedLanguages,
-              boilerplateCode: q.coding.boilerplateCode,
-            }
-          : undefined,
-    })),
-  },
-});
-
+          coding:
+            q.type === "coding"
+              ? {
+                  problemStatement: q.coding.problemStatement,
+                  constraints: q.coding.constraints,
+                  inputFormat: q.coding.inputFormat,
+                  outputFormat: q.coding.outputFormat,
+                  sampleTestCases: q.coding.sampleTestCases,
+                  supportedLanguages: q.coding.supportedLanguages,
+                  boilerplateCode: q.coding.boilerplateCode,
+                }
+              : undefined,
+        })),
+      },
+    });
   } catch (err) {
     console.error("Join test error:", err);
     res.status(500).json({
@@ -168,7 +165,6 @@ router.post("/verify/:attemptId", async (req, res) => {
   }
 });
 
-
 /**
  * ===============================
  * START TEST
@@ -190,11 +186,11 @@ router.post("/save/:attemptId", async (req, res) => {
 
     const test = await Test.findById(attempt.test);
 
-if (test.activeTill < new Date()) {
-  return res.status(403).json({
-    message: "Test time window has expired. Auto-save disabled.",
-  });
-}
+    if (test.activeTill < new Date()) {
+      return res.status(403).json({
+        message: "Test time window has expired. Auto-save disabled.",
+      });
+    }
 
     for (const incoming of answers) {
       const existing = attempt.answers.find(
@@ -231,8 +227,6 @@ if (test.activeTill < new Date()) {
   }
 });
 
-
-
 router.post("/start/:attemptId", async (req, res) => {
   try {
     const attempt = await TestAttempt.findById(req.params.attemptId);
@@ -253,11 +247,12 @@ router.post("/start/:attemptId", async (req, res) => {
       return res.status(404).json({ message: "Test not found" });
     }
 
-        /* ---------------- Expiry enforcement ---------------- */
+    /* ---------------- Expiry enforcement ---------------- */
     if (test.activeTill < new Date()) {
       return res.status(403).json({
-      message: "Test has expired and can no longer be started",
-    });}
+        message: "Test has expired and can no longer be started",
+      });
+    }
 
     const candidate = test.allowedCandidates.find(
       (c) => c.email === attempt.candidateEmail
@@ -284,7 +279,7 @@ router.post("/start/:attemptId", async (req, res) => {
 
     console.log(attempt.status);
     const attempt2 = await TestAttempt.findById(req.params.attemptId);
-    console.log(attempt2.status , "AFTER SAVE ");
+    console.log(attempt2.status, "AFTER SAVE ");
     res.json({
       message: "Test started successfully",
       startedAt: attempt.startedAt,
@@ -294,7 +289,6 @@ router.post("/start/:attemptId", async (req, res) => {
     res.status(500).json({ message: "Failed to start test" });
   }
 });
-
 
 /**
  * ===============================
@@ -329,6 +323,33 @@ router.post("/submit/:attemptId", async (req, res) => {
   }
 });
 
+/**
+ * ===============================
+ * SUBMIT FEEDBACK
+ * ===============================
+ */
+router.post("/feedback/:attemptId", async (req, res) => {
+  try {
+    const { rating, summary, additionalComment } = req.body;
+    const attempt = await TestAttempt.findById(req.params.attemptId);
 
+    if (!attempt) {
+      return res.status(404).json({ message: "Attempt not found" });
+    }
+
+    attempt.feedback.push({
+      rating,
+      summary,
+      additionalComment,
+    });
+
+    await attempt.save();
+
+    res.json({ message: "Feedback submitted successfully" });
+  } catch (err) {
+    console.error("Feedback submit error:", err);
+    res.status(500).json({ message: "Failed to submit feedback" });
+  }
+});
 
 export default router;

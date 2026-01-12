@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/UI";
 import { useExam } from "../context/ExamContext";
+import useFaceDetection from "../hooks/useFaceDetection.jsx";
 import api from "../services/api";
 import { toast } from "react-toastify";
-
 
 const PreCheck = () => {
   const { testId } = useParams();
   const navigate = useNavigate();
-const { examState } = useExam();
+  const { examState } = useExam();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [checks, setChecks] = useState({
@@ -23,6 +23,12 @@ const { examState } = useExam();
 
   const [micLevel, setMicLevel] = useState(0);
   const [agreed, setAgreed] = useState(false);
+
+  const { isFaceDetected } = useFaceDetection(videoRef, null, null);
+
+  useEffect(() => {
+    setChecks((prev) => ({ ...prev, face: isFaceDetected }));
+  }, [isFaceDetected]);
 
   /* ================= FULLSCREEN MONITOR ================= */
   useEffect(() => {
@@ -50,38 +56,33 @@ const { examState } = useExam();
   }, []);
 
   const verifyAndStartExam = async () => {
-  try {
-    // STEP 1: VERIFY
-   const verifyRes = await api.post(
-  `/attempts/verify/${examState.attemptId}`
-);
+    try {
+      // STEP 1: VERIFY
+      const verifyRes = await api.post(
+        `/attempts/verify/${examState.attemptId}`
+      );
 
+      if (verifyRes.data.message !== "Candidate verified successfully") {
+        alert("Verification failed");
+        return;
+      }
 
-    if (!verifyRes.data.message === "Candidate verified successfully") {
-      alert("Verification failed");
-      return;
+      // STEP 2: START
+      const startRes = await api.post(`/attempts/start/${examState.attemptId}`);
+
+      if (startRes.data.message !== "Test started successfully") {
+        alert("Failed to start exam");
+        return;
+      }
+      examState.status = "in_progress";
+      examState.startedAt = new Date().toISOString();
+      // STEP 3: NAVIGATE
+      navigate(`/exam/${examState.attemptId}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error while starting the exam");
     }
-
-
-    // STEP 2: START
-    const startRes = await api.post(
-      `/attempts/start/${examState.attemptId}`,
-    );
-
-    if (!startRes.data.message === "Test started successfully") {
-      alert("Failed to start exam");
-      return;
-    }
-    examState.status = "in_progress";
-    examState.startedAt = new Date().toISOString();
-    // STEP 3: NAVIGATE
-    navigate(`/exam/${examState.attemptId}`);
-  } catch (err) {
-    console.error(err);
-    toast.error("Network error while starting the exam")
-  }
-};
-
+  };
 
   const captureFace = () => {
     const canvas = canvasRef.current;

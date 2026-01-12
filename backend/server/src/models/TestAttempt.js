@@ -16,9 +16,8 @@ const answerSchema = new mongoose.Schema({
   },
 });
 
-
 const violationSchema = new mongoose.Schema({
-  type: String,          // tab-switch, face-not-detected, audio
+  type: String, // tab-switch, face-not-detected, audio
   timestamp: Date,
   metadata: Object,
 });
@@ -59,6 +58,15 @@ const testAttemptSchema = new mongoose.Schema(
       os: String,
       screenResolution: String,
     },
+
+    feedback: [
+      {
+        rating: Number,
+        summary: String,
+        additionalComment: String,
+        submittedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

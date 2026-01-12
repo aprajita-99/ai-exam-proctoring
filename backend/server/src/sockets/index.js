@@ -18,13 +18,15 @@ export default function initSockets(io) {
     socket.on("candidate:join", async ({ attemptId, testId }) => {
       socket.join(testId);
 
-      await TestAttempt.findByIdAndUpdate(attemptId, {
-        status: "joined",
-      });
+      // Removed overwriting status to "joined" to prevent resetting "in_progress"
+      // await TestAttempt.findByIdAndUpdate(attemptId, {
+      //   status: "joined",
+      // });
 
+      // Optionally notify admin that candidate is online
       io.to(testId).emit("candidate:update", {
         attemptId,
-        status: "joined",
+        status: "online",
       });
     });
 
@@ -81,6 +83,32 @@ export default function initSockets(io) {
         status: "submitted",
       });
     });
+
+    /**
+     * Candidate violation
+     */
+    socket.on(
+      "candidate:violation",
+      async ({ attemptId, testId, type, image, timestamp }) => {
+        console.log(`Violation reported: ${type} for attempt ${attemptId}`);
+
+        const violation = {
+          type,
+          timestamp: timestamp || new Date(),
+          metadata: { image },
+        };
+
+        await TestAttempt.findByIdAndUpdate(attemptId, {
+          $push: { violations: violation },
+        });
+
+        // Notify admin immediately
+        io.to(testId).emit("admin:violation", {
+          attemptId,
+          violation,
+        });
+      }
+    );
 
     /**
      * Disconnect handling

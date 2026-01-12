@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button, Badge } from "../components/UI";
 import { useExam } from "../context/ExamContext";
 import useProctoring from "../hooks/useProctoring";
+import useFaceDetection from "../hooks/useFaceDetection.jsx";
 import api from "../services/api";
 import socket from "../services/socket";
 import Editor from "@monaco-editor/react";
@@ -104,6 +105,7 @@ const CandidateExam = () => {
 
   /* ================= PROCTORING ================= */
   useProctoring(attemptId, test?.testId);
+  useFaceDetection(videoRef, attemptId, test?.testId);
 
   /* ================= FULLSCREEN ================= */
   useEffect(() => {
@@ -269,7 +271,7 @@ const CandidateExam = () => {
       setExamState((prev) => ({ ...prev, status: "submitted" }));
 
       toast.success(auto ? "Time up. Exam submitted." : "Exam submitted.");
-      navigate("/thank-you");
+      navigate("/submitted");
     } catch (err) {
       console.error("Submit failed:", err);
       const errorMsg = err.response?.data?.message || "Failed to submit exam";
