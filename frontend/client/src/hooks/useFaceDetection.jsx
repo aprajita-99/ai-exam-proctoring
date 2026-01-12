@@ -37,7 +37,7 @@ const useFaceDetection = (videoRef, attemptId, testId) => {
   }, []);
 
   useEffect(() => {
-    if (!detector || !videoRef.current || !attemptId || !testId) return;
+    if (!detector || !videoRef.current) return;
 
     let animationFrameId;
     let lastVideoTime = -1;

@@ -26,10 +26,6 @@ const PreCheck = () => {
 
   const { isFaceDetected } = useFaceDetection(videoRef, null, null);
 
-  useEffect(() => {
-    setChecks((prev) => ({ ...prev, face: isFaceDetected }));
-  }, [isFaceDetected]);
-
   /* ================= FULLSCREEN MONITOR ================= */
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -194,7 +190,7 @@ const PreCheck = () => {
 
               <Button
                 className="mt-4 w-full"
-                disabled={!checks.camera || checks.face}
+                disabled={!checks.camera || !isFaceDetected || checks.face}
                 onClick={captureFace}
               >
                 Capture Face Image
