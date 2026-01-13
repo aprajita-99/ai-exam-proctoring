@@ -20,7 +20,7 @@ export const initCppWorker = async () => {
         console.log("✅ C++ Worker container is already running.");
         return resolve();
       }
-      
+
       // Clean up any stopped container with same name
       exec(`docker rm -f ${CONTAINER_NAME}`, () => {
         console.log("🚀 Starting C++ Worker container...");
@@ -44,10 +44,13 @@ export const initCppWorker = async () => {
  */
 const runInContainer = (cmd) => {
   return new Promise((resolve, reject) => {
-    exec(`docker exec ${CONTAINER_NAME} bash -c "${cmd}"`, (error, stdout, stderr) => {
-      // Note: We resolve even on error to handle compilation failures gracefully
-      resolve({ error, stdout: stdout.trim(), stderr: stderr.trim() });
-    });
+    exec(
+      `docker exec ${CONTAINER_NAME} bash -c "${cmd}"`,
+      (error, stdout, stderr) => {
+        // Note: We resolve even on error to handle compilation failures gracefully
+        resolve({ error, stdout: stdout.trim(), stderr: stderr.trim() });
+      }
+    );
   });
 };
 
@@ -63,7 +66,7 @@ export const evaluateCppCode = async ({
   const submissionId = uuid();
   const srcName = `src_${submissionId}.cpp`;
   const binName = `bin_${submissionId}`;
-  
+
   // Local path (just for initial write)
   const localSrcPath = path.join(TEMP_DIR, srcName);
 
@@ -73,19 +76,24 @@ export const evaluateCppCode = async ({
 
     // B. Copy source to container (Fast 'docker cp')
     await new Promise((resolve, reject) => {
-        exec(`docker cp "${localSrcPath}" ${CONTAINER_NAME}:/${srcName}`, (err) => {
-            if (err) reject(err);
-            else resolve();
-        });
+      exec(
+        `docker cp "${localSrcPath}" ${CONTAINER_NAME}:/${srcName}`,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
     // C. Compile (Inside container)
     // We strictly catch compilation errors here
-    const compileRes = await runInContainer(`g++ -O2 /${srcName} -o /${binName}`);
-    
+    const compileRes = await runInContainer(
+      `g++ -O2 /${srcName} -o /${binName}`
+    );
+
     if (compileRes.error) {
       // Cleanup source
-      runInContainer(`rm /${srcName}`); 
+      runInContainer(`rm /${srcName}`);
       return {
         verdict: "Compilation Error",
         passed: 0,
@@ -101,15 +109,16 @@ export const evaluateCppCode = async ({
 
     for (const testCase of hiddenTestCases) {
       const { input, output } = testCase;
-      
+      const inputBase64 = Buffer.from(input || "").toString("base64");
+
       // MEASUREMENT TRICK:
       // We wrap the execution in a shell script that measures time using `date`
       // This measures ONLY the C++ process time, excluding Docker overhead.
       const runCmd = `
         start=$(date +%s%N);
-        timeout ${timeLimitMs / 1000}s /${binName} << 'EOF'
-${input}
-EOF
+        echo "${inputBase64}" | base64 -d | timeout ${
+        timeLimitMs / 1000
+      }s /${binName}
         exitCode=$?;
         end=$(date +%s%N);
         duration=$(( (end - start) / 1000000 ));
@@ -119,13 +128,20 @@ EOF
 
       // We use spawn for running to capture stdout stream clearly
       const result = await new Promise((resolve) => {
-        const child = spawn("docker", ["exec", "-i", CONTAINER_NAME, "bash", "-c", runCmd]);
-        
+        const child = spawn("docker", [
+          "exec",
+          "-i",
+          CONTAINER_NAME,
+          "bash",
+          "-c",
+          runCmd,
+        ]);
+
         let outData = "";
         let errData = "";
 
-        child.stdout.on("data", (d) => outData += d.toString());
-        child.stderr.on("data", (d) => errData += d.toString());
+        child.stdout.on("data", (d) => (outData += d.toString()));
+        child.stderr.on("data", (d) => (errData += d.toString()));
 
         child.on("close", (code) => {
           resolve({ outData, errData, code });
@@ -135,30 +151,49 @@ EOF
       // Parse Internal Time
       const timeMatch = result.outData.match(/===TIME: (\d+)/);
       const executionTime = timeMatch ? parseInt(timeMatch[1], 10) : 0;
-      
+
       // Clean stdout (remove our timing flag)
       const userOutput = result.outData.replace(/===TIME: \d+\n?/, "").trim();
-      
+
       maxTime = Math.max(maxTime, executionTime);
 
       // 1. TLE Check
-      if (result.code === 124) { // timeout exit code
+      if (result.code === 124) {
+        // timeout exit code
         cleanup();
-        return { verdict: "Time Limit Exceeded", passed, total: hiddenTestCases.length, executionTimeMs: timeLimitMs };
+        return {
+          verdict: "Time Limit Exceeded",
+          passed,
+          total: hiddenTestCases.length,
+          executionTimeMs: timeLimitMs,
+        };
       }
 
       // 2. Runtime Error Check
       if (result.code !== 0) {
         cleanup();
-        return { verdict: "Runtime Error", passed, total: hiddenTestCases.length, executionTimeMs: maxTime, error: result.errData };
+        return {
+          verdict: "Runtime Error",
+          passed,
+          total: hiddenTestCases.length,
+          executionTimeMs: maxTime,
+          error: result.errData,
+        };
       }
 
       // 3. Logic Check
-      if (userOutput === output.trim()) {
+      const normalize = (str) => str.replace(/\r/g, "").trim();
+
+      if (normalize(userOutput) === normalize(output)) {
         passed++;
       } else {
         cleanup();
-        return { verdict: "Wrong Answer", passed, total: hiddenTestCases.length, executionTimeMs: maxTime };
+        return {
+          verdict: "Wrong Answer",
+          passed,
+          total: hiddenTestCases.length,
+          executionTimeMs: maxTime,
+        };
       }
     }
 
@@ -171,11 +206,12 @@ EOF
     };
 
     function cleanup() {
-       // Fire and forget cleanup command inside container
-       runInContainer(`rm /${srcName} /${binName}`);
-       try { if (fs.existsSync(localSrcPath)) fs.unlinkSync(localSrcPath); } catch {}
+      // Fire and forget cleanup command inside container
+      runInContainer(`rm /${srcName} /${binName}`);
+      try {
+        if (fs.existsSync(localSrcPath)) fs.unlinkSync(localSrcPath);
+      } catch {}
     }
-
   } catch (err) {
     console.error(err);
     return { verdict: "System Error", error: err.message };

@@ -111,6 +111,11 @@ const testAttemptSchema = new mongoose.Schema(
         submittedAt: { type: Date, default: Date.now },
       },
     ],
+
+    score: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

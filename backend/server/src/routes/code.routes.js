@@ -21,18 +21,27 @@ router.post("/run", async (req, res) => {
     const results = [];
 
     const executeRun = async (lang, c, inp, time) => {
-        switch(lang) {
-            case "cpp": return runCpp({ code: c, input: inp, timeLimitMs: time });
-            case "python": return runPython({ code: c, input: inp, timeLimitMs: time });
-            case "java": return runJava({ code: c, input: inp, timeLimitMs: time });
-            default: throw new Error("Unsupported language");
-        }
+      switch (lang) {
+        case "cpp":
+          return runCpp({ code: c, input: inp, timeLimitMs: time });
+        case "python":
+          return runPython({ code: c, input: inp, timeLimitMs: time });
+        case "java":
+          return runJava({ code: c, input: inp, timeLimitMs: time });
+        default:
+          throw new Error("Unsupported language");
+      }
     };
 
     for (let i = 0; i < sampleTestCases.length; i++) {
       const { input, output } = sampleTestCases[i];
 
-      const runResult = await executeRun(language, code, input, question.coding.timeLimitMs);
+      const runResult = await executeRun(
+        language,
+        code,
+        input,
+        question.coding.timeLimitMs
+      );
 
       const actual = (runResult.output || "").trim();
       const expected = (output || "").trim();
@@ -55,7 +64,7 @@ router.post("/run", async (req, res) => {
   }
 });
 
- router.post("/submit", async (req, res) => {
+router.post("/submit", async (req, res) => {
   try {
     const { attemptId, questionId, code, language } = req.body;
 
@@ -70,17 +79,53 @@ router.post("/run", async (req, res) => {
     }
 
     const executeEval = async (lang, c, tests, time) => {
-        switch(lang) {
-            case "cpp": return evaluateCppCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
-            case "python": return evaluatePythonCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
-            case "java": return evaluateJavaCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
-            default: throw new Error("Unsupported language");
-        }
+      switch (lang) {
+        case "cpp":
+          return evaluateCppCode({
+            code: c,
+            hiddenTestCases: tests,
+            timeLimitMs: time,
+          });
+        case "python":
+          return evaluatePythonCode({
+            code: c,
+            hiddenTestCases: tests,
+            timeLimitMs: time,
+          });
+        case "java":
+          return evaluateJavaCode({
+            code: c,
+            hiddenTestCases: tests,
+            timeLimitMs: time,
+          });
+        default:
+          throw new Error("Unsupported language");
+      }
     };
 
-   const result = await executeEval(language, code, question.coding.hiddenTestCases, question.coding.timeLimitMs);
+    let result;
+    if (
+      !question.coding.hiddenTestCases ||
+      question.coding.hiddenTestCases.length === 0
+    ) {
+      result = {
+        verdict: "Accepted",
+        passed: 0,
+        total: 0,
+        executionTimeMs: 0,
+      };
+    } else {
+      result = await executeEval(
+        language,
+        code,
+        question.coding.hiddenTestCases,
+        question.coding.timeLimitMs
+      );
+    }
 
-    let answer = attempt.answers.find((a) => a.question.toString() === questionId);
+    let answer = attempt.answers.find(
+      (a) => a.question.toString() === questionId
+    );
 
     if (!answer) {
       answer = {
@@ -115,7 +160,4 @@ router.post("/run", async (req, res) => {
   }
 });
 
-
-  export default router;
-
-
+export default router;

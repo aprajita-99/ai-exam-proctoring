@@ -379,12 +379,50 @@ router.post("/submit/:attemptId", async (req, res) => {
       });
     }
 
+    // Fetch the test with questions populated
+    const test = await Test.findById(attempt.test).populate("questions");
+    let totalScore = 0;
+
+    // Create a map for quick question lookup
+    const questionMap = new Map();
+    for (const q of test.questions) {
+      questionMap.set(q._id.toString(), q);
+    }
+
+    for (const ans of attempt.answers) {
+      const q = questionMap.get(ans.question.toString());
+      if (!q) continue;
+      // MCQ
+      if (q.type === "mcq" && ans.mcqAnswer !== undefined) {
+        if (ans.mcqAnswer === q.mcq.correctAnswer) {
+          totalScore += q.marks;
+        }
+      }
+      // Descriptive (auto-award 0, or implement logic if needed)
+      // Coding: award full marks if verdict is 'Accepted' and all test cases passed
+      if (
+        q.type === "coding" &&
+        ans.codingAnswer &&
+        ans.codingAnswer.verdict === "Accepted"
+      ) {
+        if (
+          ans.codingAnswer.passedTestCases ===
+            ans.codingAnswer.totalTestCases &&
+          ans.codingAnswer.totalTestCases > 0
+        ) {
+          totalScore += q.marks;
+        }
+      }
+      // (Optional) Add logic for descriptive if auto-grading is implemented
+    }
+
+    attempt.score = totalScore;
     attempt.status = "submitted";
     attempt.submittedAt = new Date();
 
     await attempt.save();
 
-    res.json({ message: "Test submitted successfully" });
+    res.json({ message: "Test submitted successfully", score: totalScore });
   } catch (err) {
     console.error("Submit test error:", err);
     res.status(500).json({ message: "Failed to submit test" });
