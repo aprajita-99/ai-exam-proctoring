@@ -7,26 +7,22 @@ import testRoutes from "./routes/test.routes.js";
 import attemptRoutes from "./routes/attempt.routes.js";
 import codeRoutes from "./routes/code.routes.js";
 import adminMonitoringRoutes from "./routes/adminMonitoring.routes.js";
-import { initCppWorker } from './services/codeRunner/evaluateCpp.js'; // Adjust path
 
-
-initCppWorker().then(() => {
-    app.listen(3000, () => {
-        console.log("Server running on port 3000");
-    });
-});
-
+// 1. Change Import: Import the unified worker initializer
+import { initWorkers } from './services/codeRunner/initWorkers.js'; 
 
 const app = express();
+
+// 2. Setup Middleware (Move this BEFORE starting server)
 app.use(
   cors({
     origin: "http://localhost:5173",
     credentials: true,
   })
 );
-
 app.use(express.json());
 
+// 3. Register Routes
 app.get("/test-route", (req, res) => {
   res.send("Test route working");
 });
@@ -41,6 +37,20 @@ app.use("/api/admin/monitoring", adminMonitoringRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
+
+// 4. Initialize Containers & Start Server
+// This now starts C++, Python, AND Java containers
+initWorkers()
+  .then(() => {
+    // Only listen after containers are ready
+    app.listen(3000, () => {
+      console.log("Server running on port 3000");
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to initialize code runners:", err);
+    process.exit(1);
+  });
 
 export default app;
 

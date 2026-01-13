@@ -3,41 +3,36 @@ import TestAttempt from "../models/TestAttempt.js";
 import Question from "../models/Question.js";
 import { runCpp } from "../services/codeRunner/runCpp.js";
 import { evaluateCppCode } from "../services/codeRunner/evaluateCpp.js";
+import { runPython } from "../services/codeRunner/runPython.js";
+import { evaluatePythonCode } from "../services/codeRunner/evaluatePython.js";
+import { runJava } from "../services/codeRunner/runJava.js";
+import { evaluateJavaCode } from "../services/codeRunner/evaluateJava.js";
 
 const router = express.Router();
 
-/* ======================================================
-   RUN CODE (Visible / Sample Test Cases ONLY)
-   - Used by "Run Code" button
-   - Does NOT store anything in DB
-   - Does NOT affect attempt state
-====================================================== */
 router.post("/run", async (req, res) => {
   try {
     const { questionId, code, language } = req.body;
-
-    /* ---------- Validate question ---------- */
     const question = await Question.findById(questionId);
     if (!question || question.type !== "coding") {
       return res.status(400).json({ message: "Invalid coding question" });
     }
-
-    if (language !== "cpp") {
-      return res.status(400).json({ message: "Only C++ supported for now" });
-    }
-
     const sampleTestCases = question.coding.sampleTestCases || [];
-
     const results = [];
+
+    const executeRun = async (lang, c, inp, time) => {
+        switch(lang) {
+            case "cpp": return runCpp({ code: c, input: inp, timeLimitMs: time });
+            case "python": return runPython({ code: c, input: inp, timeLimitMs: time });
+            case "java": return runJava({ code: c, input: inp, timeLimitMs: time });
+            default: throw new Error("Unsupported language");
+        }
+    };
 
     for (let i = 0; i < sampleTestCases.length; i++) {
       const { input, output } = sampleTestCases[i];
 
-      const runResult = await runCpp({
-        code,
-        input,
-        timeLimitMs: question.coding.timeLimitMs,
-      });
+      const runResult = await executeRun(language, code, input, question.coding.timeLimitMs);
 
       const actual = (runResult.output || "").trim();
       const expected = (output || "").trim();
@@ -60,46 +55,38 @@ router.post("/run", async (req, res) => {
   }
 });
 
-/* ======================================================
-   SUBMIT CODE (Final Evaluation)
-   - Uses HIDDEN test cases
-   - Stores verdict in TestAttempt
-   - Affects grading
-====================================================== */
-router.post("/submit", async (req, res) => {
+ router.post("/submit", async (req, res) => {
   try {
     const { attemptId, questionId, code, language } = req.body;
 
-    /* ---------- Validate attempt ---------- */
     const attempt = await TestAttempt.findById(attemptId);
     if (!attempt || attempt.status !== "in_progress") {
       return res.status(400).json({ message: "Invalid attempt" });
     }
 
-    /* ---------- Validate question ---------- */
     const question = await Question.findById(questionId);
     if (!question || question.type !== "coding") {
       return res.status(400).json({ message: "Invalid coding question" });
     }
 
-    if (language !== "cpp") {
-      return res.status(400).json({ message: "Only C++ supported for now" });
-    }
+    const executeEval = async (lang, c, tests, time) => {
+        switch(lang) {
+            case "cpp": return evaluateCppCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
+            case "python": return evaluatePythonCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
+            case "java": return evaluateJavaCode({ code: c, hiddenTestCases: tests, timeLimitMs: time });
+            default: throw new Error("Unsupported language");
+        }
+    };
 
-    /* ---------- Evaluate against hidden test cases ---------- */
-    const result = await evaluateCppCode({
-      code,
-      hiddenTestCases: question.coding.hiddenTestCases,
-      timeLimitMs: question.coding.timeLimitMs,
-    });
+   const result = await executeEval(language, code, question.coding.hiddenTestCases, question.coding.timeLimitMs);
 
-    /* ---------- Store / update answer ---------- */
-    let answer = attempt.answers.find(
-      (a) => a.question.toString() === questionId
-    );
+    let answer = attempt.answers.find((a) => a.question.toString() === questionId);
 
     if (!answer) {
-      answer = { question: questionId };
+      answer = {
+        question: questionId,
+        codingAnswer: {},
+      };
       attempt.answers.push(answer);
     }
 
@@ -107,21 +94,28 @@ router.post("/submit", async (req, res) => {
       code,
       language,
       verdict: result.verdict,
-      passedTestCases: result.passed,
-      totalTestCases: result.total,
-      executionTimeMs: result.executionTimeMs,
+      passedTestCases: result.passed ?? 0,
+      totalTestCases: result.total ?? question.coding.hiddenTestCases.length,
+      executionTimeMs: result.executionTimeMs ?? 0,
+      errorMessage: result.error ?? null,
     };
 
     await attempt.save();
 
-    /* ---------- Respond ---------- */
-    res.json(answer.codingAnswer);
+    res.json({
+      verdict: answer.codingAnswer.verdict,
+      passedTestCases: answer.codingAnswer.passedTestCases,
+      totalTestCases: answer.codingAnswer.totalTestCases,
+      executionTimeMs: answer.codingAnswer.executionTimeMs,
+      errorMessage: answer.codingAnswer.errorMessage,
+    });
   } catch (err) {
     console.error("Code submit error:", err);
     res.status(500).json({ message: "Code evaluation failed" });
   }
 });
 
-export default router;
+
+  export default router;
 
 

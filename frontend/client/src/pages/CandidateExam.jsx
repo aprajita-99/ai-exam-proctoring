@@ -4,7 +4,7 @@ import { Button, Badge } from "../components/UI";
 import { useExam } from "../context/ExamContext";
 import useProctoring from "../hooks/useProctoring";
 import useFaceDetection from "../hooks/useFaceDetection.jsx";
-import api from "../services/api";
+import candidateApi from "../services/candidateApi.js";
 import socket from "../services/socket";
 import Editor from "@monaco-editor/react";
 import { toast } from "react-toastify";
@@ -49,7 +49,7 @@ const CandidateExam = () => {
 
     // Set new timeout to save after 2 seconds of no changes
     autoSaveTimeoutRef.current = setTimeout(() => {
-      api
+      candidateApi
         .post(`/attempts/save/${attemptId}`, {
           answers: Object.entries(answers).map(([q, a]) => ({
             question: q,
@@ -148,7 +148,7 @@ const CandidateExam = () => {
       setIsRunning(true);
       setRunOutput("");
 
-      const res = await api.post("/code/run", {
+      const res = await candidateApi.post("/code/run", {
         questionId: currentQuestion._id,
         code,
         language,
@@ -179,9 +179,9 @@ const CandidateExam = () => {
 
   const submitCode = async () => {
     try {
-      setIsSubmitting(true);
+      setIsSubmittingCode(true);
 
-      const res = await api.post("/code/submit", {
+      const res = await candidateApi.post("/code/submit", {
         attemptId,
         questionId: currentQuestion._id,
         code,
@@ -190,7 +190,6 @@ const CandidateExam = () => {
 
       const result = res.data;
 
-      // 🔥 THIS IS THE FIX
       setAnswers((prev) => ({
         ...prev,
         [currentQuestion._id]: {
@@ -205,6 +204,12 @@ const CandidateExam = () => {
           },
         },
       }));
+
+      toast.success(
+        result.verdict === "Accepted"
+          ? "All test cases passed!"
+          : `Submission result: ${result.verdict}`
+      );
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
@@ -254,7 +259,7 @@ const CandidateExam = () => {
   /* ================= SUBMIT ================= */
   const handleSubmit = async (auto = false) => {
     try {
-      await api.post(`/attempts/submit/${attemptId}`, {
+      await candidateApi.post(`/attempts/submit/${attemptId}`, {
         answers: Object.entries(answers).map(([q, a]) => ({
           question: q,
           answer: a,
@@ -446,23 +451,47 @@ const CandidateExam = () => {
                 <div className="bg-black text-green-400 p-4 rounded-xl text-sm font-mono min-h-[120px]">
                   {runOutput || "Output will appear here..."}
                 </div>
-                {answers[currentQuestion._id]?.codingAnswer?.verdict && (
-                  <div className="text-sm font-bold mt-2">
-                    Verdict:{" "}
-                    <span
-                      className={
-                        answers[currentQuestion._id].codingAnswer.verdict ===
-                        "Accepted"
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }
-                    >
-                      {answers[currentQuestion._id].codingAnswer.verdict}
-                    </span>
-                    {" ("}
-                    {answers[currentQuestion._id].codingAnswer.passedTestCases}/
-                    {answers[currentQuestion._id].codingAnswer.totalTestCases}
-                    {")"}
+                {answers[currentQuestion._id]?.codingAnswer && (
+                  <div className="mt-4 p-4 rounded-xl bg-slate-900 border border-slate-800 text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="font-bold text-slate-400">Verdict</span>
+                      <span
+                        className={`font-bold ${
+                          answers[currentQuestion._id].codingAnswer.verdict ===
+                          "Accepted"
+                            ? "text-green-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {answers[currentQuestion._id].codingAnswer.verdict}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Hidden Test Cases</span>
+                      <span className="font-mono">
+                        {
+                          answers[currentQuestion._id].codingAnswer
+                            .passedTestCases
+                        }{" "}
+                        /{" "}
+                        {
+                          answers[currentQuestion._id].codingAnswer
+                            .totalTestCases
+                        }
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Execution Time</span>
+                      <span className="font-mono">
+                        {
+                          answers[currentQuestion._id].codingAnswer
+                            .executionTimeMs
+                        }{" "}
+                        ms
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

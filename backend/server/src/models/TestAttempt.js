@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const answerSchema = new mongoose.Schema({
   question: {
     type: mongoose.Schema.Types.ObjectId,
@@ -13,6 +12,29 @@ const answerSchema = new mongoose.Schema({
   codingAnswer: {
     code: String,
     language: String,
+
+    verdict: {
+      type: String, // Accepted, Wrong Answer, TLE, Runtime Error, etc.
+    },
+
+    passedTestCases: {
+      type: Number,
+      default: 0,
+    },
+
+    totalTestCases: {
+      type: Number,
+      default: 0,
+    },
+
+    executionTimeMs: {
+      type: Number,
+      default: 0,
+    },
+
+    errorMessage: {
+      type: String, // compilation/runtime error (optional)
+    },
   },
 });
 

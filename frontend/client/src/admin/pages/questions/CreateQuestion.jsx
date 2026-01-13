@@ -379,32 +379,41 @@ const CreateQuestion = () => {
     }
   />
 
-  <div>
-    <label className="text-xs text-slate-400 mb-1 block">
-      Supported Languages
-    </label>
-    <select
-      multiple
-      value={form.coding.supportedLanguages}
-      onChange={(e) =>
-        setForm({
-          ...form,
-          coding: {
-            ...form.coding,
-            supportedLanguages: Array.from(
-              e.target.selectedOptions,
-              (o) => o.value
-            ),
-          },
-        })
-      }
-      className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white h-24"
-    >
-      <option value="cpp">C++</option>
-      <option value="python">Python</option>
-      <option value="java">Java</option>
-    </select>
-  </div>
+<div>
+  <label className="text-xs text-slate-400 mb-1 block">
+    Supported Languages
+  </label>
+
+  <select
+    multiple
+    value={form.coding.supportedLanguages}
+    onChange={(e) => {
+      const selected = Array.from(
+        e.target.options
+      )
+        .filter((o) => o.selected)
+        .map((o) => o.value);
+
+      setForm({
+        ...form,
+        coding: {
+          ...form.coding,
+          supportedLanguages: selected,
+        },
+      });
+    }}
+    className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white h-28"
+  >
+    <option value="cpp">C++</option>
+    <option value="python">Python</option>
+    <option value="java">Java</option>
+  </select>
+
+  <p className="text-[10px] text-slate-500 mt-1">
+    Hold <kbd>Ctrl</kbd> (Windows) or <kbd>Cmd</kbd> (Mac) to select multiple
+  </p>
+</div>
+
 </div>
 
 
