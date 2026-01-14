@@ -23,6 +23,12 @@ const testSchema = new mongoose.Schema(
       required: true,
     },
 
+    supportedLanguages: {
+      type: [String],
+      enum: ["cpp", "python", "java"],
+      default: ["cpp", "python", "java"], // Default to all
+    },
+
     questions: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -64,4 +70,3 @@ const testSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("Test", testSchema);
-
