@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
-/* ===============================
-   Light Date-Time Picker Fix
-=============================== */
-/* ===============================
-   Dark Input + Light Calendar
-=============================== */
 .datetime-dark {
-  background-color: #020617;      /* slate-950 */
-  color: #e5e7eb;                 /* slate-200 */
-  border: 1px solid #1e293b;      /* slate-800 */
-
-  /* 🔑 This is the magic */
+  background-color: #020617;    
+  color: #e5e7eb;                 
+  border: 1px solid #1e293b;   
   color-scheme: light;
 }
-
-/* Chrome / Edge calendar icon */
 .datetime-dark::-webkit-calendar-picker-indicator {
-  filter: invert(1);              /* make icon white */
+  filter: invert(1);          
   opacity: 0.85;
   cursor: pointer;
 }
+/* Disable text selection */
+* {
+  -webkit-user-select: none; /* Chrome, Safari */
+  -moz-user-select: none;    /* Firefox */
+  -ms-user-select: none;     /* IE/Edge */
+  user-select: none;         /* Standard */
+}
+/* Disable touch callout (iOS long press) */
+* {
+  -webkit-touch-callout: none;
+}
+/* Disable image dragging */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+/* Prevent highlighting on double click */
+::selection {
+  background: transparent;
+}
+
 
 
 

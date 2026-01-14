@@ -41,7 +41,7 @@ const Home = () => {
         </nav>
 
         {/* Hero Section */}
-        <div className="flex-1 flex flex-col justify-center items-center text-center py-4 md:py-8 lg:py-12 max-w-4xl mx-auto">
+        <div className="flex-1 flex flex-col justify-center items-center text-center py-4 md:py-8 lg:py-12 max-w-5xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-8">
             <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             Enterprise Grade AI Proctoring
@@ -49,7 +49,7 @@ const Home = () => {
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-8 tracking-tighter leading-[1] md:leading-[0.9]">
             Next Generation <br />
-            <span className="text-slate-500">Testing Platform.</span>
+            <span className="text-slate-500">Assessment Platform.</span>
           </h1>
 
           <p className="text-lg md:text-xl text-slate-400 mb-12 leading-relaxed max-w-2xl font-medium">
