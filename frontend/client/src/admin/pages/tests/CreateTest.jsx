@@ -17,6 +17,7 @@ const CreateTest = () => {
     title: "",
     duration: 60,
     activeTill: "",
+    supportedLanguages: ["cpp", "python", "java"], // Default all selected
     allowedCandidates: [{ email: "", passcode: "" }],
   });
 
@@ -38,6 +39,11 @@ const CreateTest = () => {
       return;
     }
 
+    if (form.supportedLanguages.length === 0) {
+      toast.error("Please select at least one supported language");
+      return;
+    }
+
     const hasInvalidPasscode = form.allowedCandidates.some(
       (c) => (c.email || c.passcode) && c.passcode.length < 4
     );
@@ -53,6 +59,7 @@ const CreateTest = () => {
         title: form.title,
         duration: form.duration,
         activeTill: form.activeTill,
+        supportedLanguages: form.supportedLanguages,
         questions: selectedQuestions,
         allowedCandidates: form.allowedCandidates,
       });
@@ -103,6 +110,46 @@ const CreateTest = () => {
             value={form.activeTill}
             onChange={(e) => setForm({ ...form, activeTill: e.target.value })}
           />
+        </div>
+
+        {/* SUPPORTED LANGUAGES */}
+        <div>
+          <label className="block text-slate-400 text-sm font-bold mb-2">
+            Supported Languages
+          </label>
+          <div className="flex gap-6 bg-slate-900 p-3 rounded border border-slate-700">
+            {["cpp", "python", "java"].map((lang) => (
+              <label
+                key={lang}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.supportedLanguages.includes(lang)}
+                  onChange={(e) => {
+                    const { checked } = e.target;
+                    setForm((prev) => {
+                      const newLangs = checked
+                        ? [...prev.supportedLanguages, lang]
+                        : prev.supportedLanguages.filter((l) => l !== lang);
+                      return { ...prev, supportedLanguages: newLangs };
+                    });
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-white text-sm font-medium">
+                  {lang === "cpp"
+                    ? "C++"
+                    : lang.charAt(0).toUpperCase() + lang.slice(1)}
+                </span>
+              </label>
+            ))}
+          </div>
+          {form.supportedLanguages.length === 0 && (
+            <p className="text-red-500 text-xs mt-1">
+              At least one language must be selected.
+            </p>
+          )}
         </div>
 
         {/* QUESTION SELECTION */}

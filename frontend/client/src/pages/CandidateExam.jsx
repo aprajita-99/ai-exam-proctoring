@@ -103,18 +103,18 @@ const CandidateExam = () => {
       testId: test.testId,
     });
 
-    return () =>{}
+    return () => {};
   }, [attemptId, test]);
 
-useEffect(() => {
+  useEffect(() => {
     if (!socket) return;
 
     // 1. Handle Warning
     const handleWarn = ({ message }) => {
       // Play a notification sound (optional)
-      const audio = new Audio('/assets/sounds/warning.mp3'); // Ensure file exists or remove
+      const audio = new Audio("/assets/sounds/warning.mp3"); // Ensure file exists or remove
       audio.play().catch(() => {});
-      
+
       // Show persistent toast
       toast.warn(
         <div>
@@ -137,18 +137,18 @@ useEffect(() => {
     const handleTermination = async ({ reason }) => {
       setIsTerminated(true);
       setTerminationReason(reason || "Violation of exam rules.");
-      
+
       // Stop Camera
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
-      
+
       // Exit Fullscreen
       await exitFullscreen();
 
       // Clear local storage
       localStorage.removeItem("examState");
-      
+
       // Update Context
       setExamState((prev) => ({ ...prev, status: "terminated" }));
     };
@@ -177,7 +177,7 @@ useEffect(() => {
     }
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     if (!attemptId || !test) return;
 
     // --- A. JOIN ROOM ---
@@ -216,12 +216,12 @@ useEffect(() => {
     // --- C. GET CAMERA & ADD TO WEBRTC ---
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
         });
         streamRef.current = stream;
-        
+
         // Show in local video element
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -251,7 +251,9 @@ useEffect(() => {
     // 2. ICE Candidates from Admin
     const handleIce = async (candidate) => {
       if (pcRef.current) {
-        try { await pcRef.current.addIceCandidate(candidate); } catch(e){}
+        try {
+          await pcRef.current.addIceCandidate(candidate);
+        } catch (e) {}
       }
     };
 
@@ -263,9 +265,9 @@ useEffect(() => {
 
     // 4. Warning Handler
     const handleWarn = ({ message }) => {
-      const audio = new Audio('/assets/sounds/warning.mp3'); 
+      const audio = new Audio("/assets/sounds/warning.mp3");
       audio.play().catch(() => {});
-      
+
       toast.warn(
         <div>
           <p className="font-bold">⚠️ PROCTOR WARNING</p>
@@ -283,12 +285,12 @@ useEffect(() => {
     const handleTermination = async ({ reason }) => {
       setIsTerminated(true);
       setTerminationReason(reason || "Violation of exam rules.");
-      
+
       // Stop Camera
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
-      
+
       await exitFullscreen();
       localStorage.removeItem("examState");
       setExamState((prev) => ({ ...prev, status: "terminated" }));
@@ -319,7 +321,6 @@ useEffect(() => {
       socket.off("candidate:terminated", handleTermination);
     };
   }, [attemptId, test]);
-
 
   /* ================= TIMER INIT ================= */
   useEffect(() => {
@@ -514,7 +515,7 @@ useEffect(() => {
     );
   }
 
-// === RENDER TERMINATION SCREEN ===
+  // === RENDER TERMINATION SCREEN ===
   if (isTerminated) {
     return (
       <div className="min-h-screen bg-red-950 flex items-center justify-center p-6 text-center">
@@ -534,21 +535,23 @@ useEffect(() => {
               />
             </svg>
           </div>
-          
+
           <h1 className="text-3xl font-black text-white">Exam Terminated</h1>
-          
+
           <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/30">
-            <p className="text-sm text-red-300 uppercase font-bold mb-1">Reason</p>
+            <p className="text-sm text-red-300 uppercase font-bold mb-1">
+              Reason
+            </p>
             <p className="text-lg text-white">{terminationReason}</p>
           </div>
 
           <p className="text-slate-400">
-            The proctor has terminated your session due to policy violations. 
+            The proctor has terminated your session due to policy violations.
             Your responses up to this point have been recorded.
           </p>
 
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             onClick={() => navigate("/thank-you")} // Or wherever you want them to go
           >
             Go to Feedback Page
@@ -638,12 +641,33 @@ useEffect(() => {
                 <div className="flex justify-between items-center">
                   <select
                     value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
+                    onChange={(e) => {
+                      const newLang = e.target.value;
+                      setLanguage(newLang);
+
+                      // Update answer state immediately
+                      setAnswers((prev) => ({
+                        ...prev,
+                        [currentQuestion._id]: {
+                          ...prev[currentQuestion._id],
+                          codingAnswer: {
+                            ...(prev[currentQuestion._id]?.codingAnswer || {}),
+                            code: code,
+                            language: newLang,
+                          },
+                        },
+                      }));
+                    }}
                     className="bg-slate-900 border border-slate-700 px-3 py-2 rounded"
                   >
-                    {currentQuestion.coding.supportedLanguages.map((lang) => (
+                    {(test.supportedLanguages?.length > 0
+                      ? test.supportedLanguages
+                      : ["cpp", "python", "java"]
+                    ).map((lang) => (
                       <option key={lang} value={lang}>
-                        {lang.toUpperCase()}
+                        {lang === "cpp"
+                          ? "C++"
+                          : lang.charAt(0).toUpperCase() + lang.slice(1)}
                       </option>
                     ))}
                   </select>
