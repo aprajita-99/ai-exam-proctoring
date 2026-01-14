@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+/* ===============================
+   Light Date-Time Picker Fix
+=============================== */
+/* ===============================
+   Dark Input + Light Calendar
+=============================== */
+.datetime-dark {
+  background-color: #020617;      /* slate-950 */
+  color: #e5e7eb;                 /* slate-200 */
+  border: 1px solid #1e293b;      /* slate-800 */
+
+  /* 🔑 This is the magic */
+  color-scheme: light;
+}
+
+/* Chrome / Edge calendar icon */
+.datetime-dark::-webkit-calendar-picker-indicator {
+  filter: invert(1);              /* make icon white */
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+
+

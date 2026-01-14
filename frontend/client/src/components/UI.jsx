@@ -87,21 +87,36 @@ export const Badge = ({ risk }) => {
    Input Component
 ========================= */
 
-export const Input = ({ label, className = "", ...props }) => (
-  <div className="space-y-1.5">
-    {label && (
-      <label className="block text-sm font-medium text-slate-400">
-        {label}
-      </label>
-    )}
-    <input
-      className={`w-full px-4 py-2.5 bg-slate-950 border border-slate-800 text-slate-200 rounded-lg 
-        focus:ring-2 focus:ring-slate-400 focus:border-transparent outline-none transition-all 
-        placeholder:text-slate-700 ${className}`}
-      {...props}
-    />
-  </div>
-);
+export const Input = ({ label, className = "", type, ...props }) => {
+  const isDateTime = type === "datetime-local";
+
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <label className="block text-sm font-medium text-slate-400">
+          {label}
+        </label>
+      )}
+      <input
+        type={type}
+        className={`
+          w-full px-4 py-2.5 rounded-lg border outline-none transition-all
+          focus:ring-2 focus:border-transparent
+          
+          ${
+            isDateTime
+              ? "bg-white text-black border-slate-300 focus:ring-blue-500 datetime-light"
+              : "bg-slate-950 border-slate-800 text-slate-200 focus:ring-slate-400 placeholder:text-slate-700"
+          }
+
+          ${className}
+        `}
+        {...props}
+      />
+    </div>
+  );
+};
+
 
 /* =========================
    Textarea Component

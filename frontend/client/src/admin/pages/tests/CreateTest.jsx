@@ -109,6 +109,7 @@ const CreateTest = () => {
             type="datetime-local"
             value={form.activeTill}
             onChange={(e) => setForm({ ...form, activeTill: e.target.value })}
+            className="datetime-dark"
           />
         </div>
 
