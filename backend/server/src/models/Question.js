@@ -14,7 +14,10 @@ const mcqSchema = new mongoose.Schema({
 
 /* ================= DESCRIPTIVE ================= */
 const descriptiveSchema = new mongoose.Schema({
-  sampleAnswer: String,
+  sampleAnswer: {
+    type: String,
+    required: true,
+  },
 });
 
 /* ================= CODING ================= */

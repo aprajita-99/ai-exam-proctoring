@@ -5,6 +5,7 @@ import validateEmail from "../utils/validateEmail.js";
 import bcrypt from "bcryptjs";
 import { authorize } from "../middleware/role.middleware.js";
 import { authenticate } from "../middleware/auth.middleware.js";
+import { evaluateDescriptiveAnswer } from "../utils/nlpEvaluation.js";
 
 const router = express.Router();
 
@@ -398,7 +399,18 @@ router.post("/submit/:attemptId", async (req, res) => {
           totalScore += q.marks;
         }
       }
-      // Descriptive (auto-award 0, or implement logic if needed)
+
+      // Descriptive
+      if (q.type === "descriptive" && ans.descriptiveAnswer) {
+        // Calculate score based on NLP similarity with sample answer
+        const score = evaluateDescriptiveAnswer(
+          ans.descriptiveAnswer,
+          q.descriptive?.sampleAnswer || "",
+          q.marks
+        );
+        totalScore += score;
+      }
+
       // Coding: award full marks if verdict is 'Accepted' and all test cases passed
       if (
         q.type === "coding" &&
