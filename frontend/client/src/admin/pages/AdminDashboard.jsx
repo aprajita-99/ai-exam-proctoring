@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 const AdminDashboard = () => {
   const [admin, setAdmin] = useState(null);
 
-  // Pull admin details from login payload stored in localStorage.
+  // Pull admin details from login payload stored in sessionStorage.
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("admin_user");
+      const stored = sessionStorage.getItem("admin_user");
       if (stored) {
         setAdmin(JSON.parse(stored));
       }
