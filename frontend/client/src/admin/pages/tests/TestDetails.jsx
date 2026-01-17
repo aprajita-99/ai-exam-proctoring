@@ -4,7 +4,6 @@ import {
   getTestById,
   updateTest,
   addCandidates,
-  removeCandidate,
   addQuestionsToTest,
   removeQuestionFromTest,
 } from "../../services/testApi";
@@ -84,17 +83,6 @@ const TestDetails = () => {
       toast.success("Candidate added");
     } catch (err) {
       toast.error("Failed to add candidate");
-    }
-  };
-
-  const handleRemoveCandidate = async (email) => {
-    if (!window.confirm(`Remove ${email}?`)) return;
-    try {
-      const { data } = await removeCandidate(id, email);
-      setTest(data.test);
-      toast.success("Candidate removed");
-    } catch (err) {
-      toast.error("Failed to remove candidate");
     }
   };
 
@@ -331,12 +319,6 @@ const TestDetails = () => {
                   {c.hasAttempted ? "Attempted" : "Not Attempted"}
                 </span>
               </div>
-              <button
-                onClick={() => handleRemoveCandidate(c.email)}
-                className="text-red-500 hover:text-red-400 text-xs font-bold px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10"
-              >
-                Remove
-              </button>
             </li>
           ))}
         </ul>

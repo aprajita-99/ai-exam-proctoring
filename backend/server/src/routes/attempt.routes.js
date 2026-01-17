@@ -255,14 +255,63 @@ router.post("/verify/:attemptId", async (req, res) => {
       });
     }
 
-    if (referenceImage) {
-      attempt.referenceImage = referenceImage;
+    if (!referenceImage) {
+      return res
+        .status(400)
+        .json({ message: "Reference image (face capture) is required." });
     }
 
-    attempt.status = "verified";
-    await attempt.save();
+    // --- STRICT SERVER-SIDE FACE MATCHING ---
+    const user = await User.findOne({ email: attempt.candidateEmail });
+    if (!user || !user.idCardImage) {
+      return res.status(400).json({
+        message: "ID Card not found. Please upload ID card first.",
+      });
+    }
 
-    res.json({ message: "Candidate verified successfully" });
+    const idCardPath = path.resolve(user.idCardImage);
+    if (!fs.existsSync(idCardPath)) {
+      return res
+        .status(404)
+        .json({ message: "ID Card file missing on server" });
+    }
+
+    // Call ML Service to verify match
+    try {
+      const formData = new FormData();
+      formData.append("id_image", fs.createReadStream(idCardPath));
+      formData.append("live_image", referenceImage);
+
+      const mlServiceUrl =
+        process.env.ML_SERVICE_URL || "http://localhost:5001";
+
+      const mlRes = await axios.post(`${mlServiceUrl}/match_faces`, formData, {
+        headers: { ...formData.getHeaders() },
+      });
+
+      if (!mlRes.data.match) {
+        return res.status(403).json({
+          message: "Face verification FAILED. Face does not match ID Card.",
+          details: mlRes.data.warning || "Identity mismatch detected.",
+        });
+      }
+
+      // If matched, save proof
+      attempt.referenceImage = referenceImage;
+      attempt.status = "verified";
+      await attempt.save();
+
+      res.json({
+        message: "Candidate verified successfully",
+        confidence: mlRes.data.confidence,
+      });
+    } catch (mlErr) {
+      console.error("ML Verification Error:", mlErr.message);
+      return res.status(500).json({
+        message: "Face verification service unavailable. Please try again.",
+      });
+    }
+    // --- END STRICT MATCHING ---
   } catch (err) {
     console.error("Verification error:", err);
     res.status(500).json({ message: "Verification failed" });

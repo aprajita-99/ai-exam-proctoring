@@ -80,18 +80,24 @@ def match_faces():
             
             # STRICTER THRESHOLD Logic
             # Default Facenet512 threshold is 0.30 (Cosine)
-            # We lower it to 0.23 to minimize false accepts (imposters).
+            # We lower it to 0.15 to minimize false accepts (imposters).
             
-            strict_threshold = 0.23
+            strict_threshold = 0.15
             distance = result["distance"]
             
-            # Override the library's decision if it's in the "grey zone" (0.23 - 0.30)
+            # Override the library's decision if it's in the "grey zone" (0.15 - 0.30)
             is_match = distance <= strict_threshold
             
+            warning = None
+            if not is_match:
+                # If valid faces are found but distance is high, it's likely a different person
+                warning = "CRITICAL: Different person detected. Face does not match the ID card record."
+
             print(f"Match Check | Distance: {distance} | Threshold: {strict_threshold} | Match: {is_match}")
             
             return jsonify({
                 "match": is_match,
+                "warning": warning,
                 "confidence": 1 - distance if distance < 1 else 0,
                 "distance": distance,
                 "threshold": strict_threshold,

@@ -101,7 +101,7 @@ const JoinTest = () => {
           </div>
 
           <form onSubmit={handleJoin} className="space-y-6" autoComplete="off">
-            <Input label="Full Legal Name" value={formData.fullName} disabled />
+            <Input label="Full Legal Name" value={formData.fullName} disabled/>
 
             <Input
               label="Official Email Address"
