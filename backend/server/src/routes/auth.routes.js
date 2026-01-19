@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import validateEmail from "../utils/validateEmail.js";
-import { sendWelcomeEmail } from "../utils/sendEmail.js";
+import { sendAdminWelcomeEmail, sendCandidateWelcomeEmail } from "../utils/sendEmail.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -54,7 +54,7 @@ router.post("/admin/register", async (req, res) => {
       emailVerified: true,
     });
 
-    sendWelcomeEmail(email, name).catch(console.error);
+    sendAdminWelcomeEmail(email, name).catch(console.error);
 
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
@@ -162,7 +162,7 @@ router.post("/candidate/register", async (req, res) => {
       emailVerified: true,
     });
 
-    sendWelcomeEmail(email, name).catch(console.error);
+    sendCandidateWelcomeEmail(email, name).catch(console.error);
 
     const token = jwt.sign(
       { id: candidate._id, role: candidate.role },
