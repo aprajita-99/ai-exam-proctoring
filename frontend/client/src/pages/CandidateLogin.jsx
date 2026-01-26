@@ -10,12 +10,34 @@ const CandidateLogin = () => {
 
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
+    otp: "",
   });
+
+  /* ===============================
+     SEND OTP
+  =============================== */
+  const handleSendOtp = async () => {
+    if (!formData.email) {
+      toastInfo("Email is required");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post("/auth/send-otp-candidate", { email: formData.email });
+      setOtpSent(true);
+      toastSuccess("OTP sent to your email");
+    } catch (err) {
+      toastError(err, "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ===============================
      LOCAL LOGIN / REGISTER
@@ -23,14 +45,37 @@ const CandidateLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.email || !formData.password) {
-      toastInfo("Email and password are required");
+    if (!formData.email) {
+      toastInfo("Email is required");
       return;
     }
 
-    if (!isLogin && !formData.name) {
-      toastInfo("Name is required for registration");
-      return;
+    if (isLogin) {
+      if (!formData.password) {
+        toastInfo("Password is required");
+        return;
+      }
+    } else {
+      // Registration checks
+      if (!formData.name) {
+        toastInfo("Name is required");
+        return;
+      }
+      if (!formData.password) {
+        toastInfo("Password is required");
+        return;
+      }
+
+      // If OTP not sent yet, trigger send
+      if (!otpSent) {
+        await handleSendOtp();
+        return;
+      }
+
+      if (!formData.otp) {
+        toastInfo("Please enter the OTP sent to your email");
+        return;
+      }
     }
 
     setLoading(true);
@@ -49,19 +94,15 @@ const CandidateLogin = () => {
             name: formData.name,
             email: formData.email,
             password: formData.password,
+            otp: formData.otp,
           };
 
       const res = await api.post(endpoint, payload);
 
       localStorage.setItem("candidate_token", res.data.token);
-      localStorage.setItem(
-        "candidate_user",
-        JSON.stringify(res.data.user)
-      );
+      localStorage.setItem("candidate_user", JSON.stringify(res.data.user));
 
-      toastSuccess(
-        isLogin ? "Login successful" : "Registration successful"
-      );
+      toastSuccess(isLogin ? "Login successful" : "Registration successful");
 
       navigate("/candidatedash");
     } catch (err) {
@@ -83,10 +124,7 @@ const CandidateLogin = () => {
       });
 
       localStorage.setItem("candidate_token", res.data.token);
-      localStorage.setItem(
-        "candidate_user",
-        JSON.stringify(res.data.user)
-      );
+      localStorage.setItem("candidate_user", JSON.stringify(res.data.user));
 
       toastSuccess("Google login successful");
       navigate("/candidatedash");
@@ -106,11 +144,9 @@ const CandidateLogin = () => {
   =============================== */
   const toggleMode = () => {
     setIsLogin((prev) => !prev);
-    toastInfo(
-      !isLogin
-        ? "Switched to login"
-        : "Switched to registration"
-    );
+    setOtpSent(false);
+    setFormData((prev) => ({ ...prev, otp: "" }));
+    toastInfo(!isLogin ? "Switched to login" : "Switched to registration");
   };
 
   /* ===============================
@@ -168,6 +204,7 @@ const CandidateLogin = () => {
                   name: e.target.value,
                 })
               }
+              disabled={otpSent}
             />
           )}
 
@@ -182,6 +219,7 @@ const CandidateLogin = () => {
                 email: e.target.value,
               })
             }
+            disabled={otpSent && !isLogin}
           />
 
           <Input
@@ -195,7 +233,27 @@ const CandidateLogin = () => {
                 password: e.target.value,
               })
             }
+            disabled={otpSent && !isLogin}
           />
+
+          {!isLogin && otpSent && (
+            <div className="animate-fade-in">
+              <Input
+                label="Verification Code (OTP)"
+                placeholder="Enter 6-digit code"
+                value={formData.otp}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    otp: e.target.value,
+                  })
+                }
+              />
+              <p className="text-xs text-slate-500 mt-1 text-center">
+                Code sent to {formData.email}
+              </p>
+            </div>
+          )}
 
           <Button
             type="submit"
@@ -207,9 +265,23 @@ const CandidateLogin = () => {
             {loading
               ? "Please wait..."
               : isLogin
-              ? "Login"
-              : "Register"}
+                ? "Login"
+                : otpSent
+                  ? "Verify & Register"
+                  : "Send OTP"}
           </Button>
+
+          {!isLogin && otpSent && (
+            <button
+              type="button"
+              onClick={() => {
+                setOtpSent(false);
+              }}
+              className="w-full text-xs text-red-400 hover:text-red-300 mt-2 underline"
+            >
+              Change details / Resend
+            </button>
+          )}
         </form>
 
         {/* TOGGLE */}
@@ -229,4 +301,3 @@ const CandidateLogin = () => {
 };
 
 export default CandidateLogin;
-

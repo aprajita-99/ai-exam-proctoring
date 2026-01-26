@@ -2,8 +2,13 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Otp from "../models/Otp.js";
 import validateEmail from "../utils/validateEmail.js";
-import { sendAdminWelcomeEmail, sendCandidateWelcomeEmail } from "../utils/sendEmail.js";
+import {
+  sendAdminWelcomeEmail,
+  sendCandidateWelcomeEmail,
+  sendOTPEmail,
+} from "../utils/sendEmail.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -59,7 +64,7 @@ router.post("/admin/register", async (req, res) => {
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.status(201).json({
@@ -102,7 +107,7 @@ router.post("/admin/login", async (req, res) => {
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({
@@ -120,12 +125,48 @@ router.post("/admin/login", async (req, res) => {
   }
 });
 
+/* ===============================
+   SEND OTP (CANDIDATE)
+=============================== */
+router.post("/send-otp-candidate", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !validateEmail(email)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP
+    await Otp.findOneAndUpdate(
+      { email },
+      { otp, email },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    await sendOTPEmail(email, otp);
+
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("OTP Send error:", err);
+    res.status(500).json({ message: "Failed to send OTP" }); // Don't expose internal errors in production, but generic message is fine
+  }
+});
+
 router.post("/candidate/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, otp } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !password || !otp) {
+      return res
+        .status(400)
+        .json({ message: "All fields including OTP are required" });
     }
 
     if (!validateEmail(email)) {
@@ -136,6 +177,12 @@ router.post("/candidate/register", async (req, res) => {
       return res
         .status(400)
         .json({ message: "Password must be at least 8 characters" });
+    }
+
+    // Verify OTP
+    const validOtp = await Otp.findOne({ email, otp });
+    if (!validOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
     const existing = await User.findOne({ email });
@@ -162,12 +209,15 @@ router.post("/candidate/register", async (req, res) => {
       emailVerified: true,
     });
 
+    // Cleanup OTP
+    await Otp.deleteOne({ email });
+
     sendCandidateWelcomeEmail(email, name).catch(console.error);
 
     const token = jwt.sign(
       { id: candidate._id, role: candidate.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.status(201).json({
@@ -210,7 +260,7 @@ router.post("/candidate/login", async (req, res) => {
     const token = jwt.sign(
       { id: candidate._id, role: candidate.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({
@@ -244,7 +294,7 @@ const storage = multer.diskStorage({
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
     );
   },
 });
@@ -256,7 +306,7 @@ const upload = multer({
     const filetypes = /jpeg|jpg|png/;
     const mimetype = filetypes.test(file.mimetype);
     const extname = filetypes.test(
-      path.extname(file.originalname).toLowerCase()
+      path.extname(file.originalname).toLowerCase(),
     );
     if (mimetype && extname) {
       return cb(null, true);
@@ -290,7 +340,7 @@ router.post(
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { idCardImage: idCardUrl },
-        { new: true }
+        { new: true },
       );
 
       res.status(200).json({
@@ -306,7 +356,7 @@ router.post(
       }
       res.status(500).json({ message: "Upload failed: " + err.message });
     }
-  }
+  },
 );
 
 /* ===============================

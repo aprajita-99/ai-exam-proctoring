@@ -64,3 +64,31 @@ export const sendCandidateWelcomeEmail = async (to, name) => {
     console.error("Error sending candidate email:", error);
   }
 };
+
+export const sendOTPEmail = async (to, otp) => {
+  try {
+    await transporter.sendMail({
+      from: `"ProCtrl Security" <${process.env.MAIL_USER}>`,
+      to,
+      subject: "Your ProCtrl Verification Code",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; text-align: center;">
+          <h2 style="color: #4F46E5;">Email Verification</h2>
+          <p>Please use the following OTP (One-Time Password) to complete your registration:</p>
+          <div style="margin: 20px 0;">
+            <span style="font-size: 24px; font-weight: bold; letter-spacing: 5px; background-color: #f3f4f6; padding: 10px 20px; border-radius: 5px; border: 1px solid #ddd;">
+              ${otp}
+            </span>
+          </div>
+          <p>This code is valid for 10 minutes.</p>
+          <p>If you didn't request this code, you can ignore this email.</p>
+          <br>
+          <p>The ProCtrl Team</p>
+        </div>
+      `,
+    });
+    console.log(`OTP email sent to ${to}`);
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+  }
+};
