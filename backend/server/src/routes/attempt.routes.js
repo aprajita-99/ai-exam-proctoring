@@ -345,8 +345,10 @@ router.post("/save/:attemptId", async (req, res) => {
         attempt.answers.push(incoming);
       }
     }
-
+    await attempt.calculateScore();
+    await attempt.calculateTotalMarks();
     await attempt.save();
+
     res.json({ message: "Saved successfully" });
   } catch (err) {
     console.error("Auto-save error:", err);
