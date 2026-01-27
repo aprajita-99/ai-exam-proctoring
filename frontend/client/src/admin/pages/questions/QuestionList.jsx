@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getQuestions, deleteQuestion } from "../../services/questionApi";
-import { Button, Card } from "../../../components/UI";
+import { Button } from "../../../components/UI"; // Assuming Card is no longer needed for the table wrapper
+import { 
+  Edit2, 
+  Trash2, 
+  Plus, 
+  Search, 
+  FileText, 
+  Code2, 
+  CheckSquare, 
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle
+} from "lucide-react";
 
 const PAGE_SIZE = 5;
 
@@ -14,14 +27,12 @@ const QuestionList = () => {
   const [deletingId, setDeletingId] = useState(null);
 
   /* ===============================
-     FILTER + PAGINATION STATE
+      FILTER + SEARCH + PAGINATION
   =============================== */
   const [typeFilter, setTypeFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  /* ===============================
-     FETCH QUESTIONS
-  =============================== */
   const fetchQuestions = async () => {
     try {
       setLoading(true);
@@ -38,15 +49,8 @@ const QuestionList = () => {
     fetchQuestions();
   }, []);
 
-  /* ===============================
-     DELETE QUESTION
-  =============================== */
   const handleDelete = async (id) => {
-    const confirm = window.confirm(
-      "Are you sure you want to delete this question?\nThis action cannot be undone."
-    );
-    if (!confirm) return;
-
+    if (!window.confirm("Are you sure? This action cannot be undone.")) return;
     try {
       setDeletingId(id);
       await deleteQuestion(id);
@@ -59,17 +63,16 @@ const QuestionList = () => {
   };
 
   /* ===============================
-     FILTERED QUESTIONS
+      COMPUTED DATA
   =============================== */
   const filteredQuestions = useMemo(() => {
-    return typeFilter === "all"
-      ? questions
-      : questions.filter((q) => q.type === typeFilter);
-  }, [questions, typeFilter]);
+    return questions.filter((q) => {
+      const matchesType = typeFilter === "all" || q.type === typeFilter;
+      const matchesSearch = q.questionText.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [questions, typeFilter, searchQuery]);
 
-  /* ===============================
-     PAGINATION LOGIC
-  =============================== */
   const totalPages = Math.ceil(filteredQuestions.length / PAGE_SIZE);
 
   const paginatedQuestions = useMemo(() => {
@@ -78,190 +81,221 @@ const QuestionList = () => {
   }, [filteredQuestions, currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1); // reset page on filter change
-  }, [typeFilter]);
+    setCurrentPage(1);
+  }, [typeFilter, searchQuery]);
 
   /* ===============================
-     UI STATES
+      HELPER: TYPE BADGE
+  =============================== */
+  const getTypeBadge = (type) => {
+    const config = {
+      mcq: { 
+        icon: <CheckSquare size={14} />, 
+        label: "MCQ", 
+        classes: "bg-blue-500/10 text-blue-400 border-blue-500/20" 
+      },
+      descriptive: { 
+        icon: <FileText size={14} />, 
+        label: "Descriptive", 
+        classes: "bg-purple-500/10 text-purple-400 border-purple-500/20" 
+      },
+      coding: { 
+        icon: <Code2 size={14} />, 
+        label: "Coding", 
+        classes: "bg-orange-500/10 text-orange-400 border-orange-500/20" 
+      },
+    };
+
+    const style = config[type] || config.mcq;
+
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${style.classes}`}>
+        {style.icon}
+        {style.label}
+      </span>
+    );
+  };
+
+  /* ===============================
+      RENDER
   =============================== */
   if (loading) {
-    return <div className="text-sm text-slate-400">Loading question bank…</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-slate-500 space-y-4">
+        <div className="w-8 h-8 border-2 border-slate-600 border-t-blue-500 rounded-full animate-spin"></div>
+        <p className="text-sm font-medium">Syncing question bank...</p>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-400 text-sm">{error}</div>;
+    return (
+      <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center gap-3">
+        <AlertCircle size={20} />
+        {error}
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black tracking-tight">Question Bank</h1>
-
-        <Button onClick={() => navigate("/admin/questions/create")}>
-          + Create Question
+    <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Question Bank</h1>
+          <p className="text-slate-400 text-sm mt-1">Manage your assessment library</p>
+        </div>
+        <Button onClick={() => navigate("/admin/questions/create")} className="shadow-lg shadow-blue-500/20">
+          <Plus size={18} className="mr-2" />
+          Create Question
         </Button>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="flex items-center gap-4">
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="bg-slate-900 border border-slate-800 text-sm px-3 py-2 rounded-md"
-        >
-          <option value="all">All Types</option>
-          <option value="mcq">MCQ</option>
-          <option value="descriptive">Descriptive</option>
-          <option value="coding">Coding</option>
-        </select>
+      {/* CONTROLS BAR */}
+      <div className="flex flex-col md:flex-row gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input 
+            type="text" 
+            placeholder="Search questions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50 transition-colors"
+          />
+        </div>
 
-        <span className="text-xs text-slate-400">
-          Showing {filteredQuestions.length} questions
-        </span>
+        {/* Filters */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="bg-slate-950 border border-slate-800 text-sm pl-9 pr-8 py-2.5 rounded-lg appearance-none cursor-pointer hover:border-slate-700 transition-colors text-slate-300 focus:outline-none"
+            >
+              <option value="all">All Types</option>
+              <option value="mcq">MCQ</option>
+              <option value="descriptive">Descriptive</option>
+              <option value="coding">Coding</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* EMPTY STATE */}
+      {/* QUESTION LIST */}
       {filteredQuestions.length === 0 ? (
-        <Card className="p-12 text-center text-slate-500">
-          <p className="font-bold mb-2 text-lg">No questions found</p>
-          <p className="text-sm">
-            Try changing filters or create a new question.
-          </p>
-        </Card>
+        <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-800 rounded-xl">
+          <div className="bg-slate-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search size={24} className="text-slate-600" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-300">No questions found</h3>
+          <p className="text-slate-500 text-sm mt-1">Try adjusting your search or filters</p>
+        </div>
       ) : (
-        <>
-          {/* TABLE */}
-          <Card className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-900/60">
-                <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px] tracking-wider">
-                  <th className="text-left px-6 py-4">Question</th>
-                  <th className="text-left px-6 py-4">Type</th>
-                  <th className="text-center px-6 py-4">Marks</th>
-                  <th className="text-left px-6 py-4">Created</th>
-                  <th className="text-right px-6 py-4">Actions</th>
+        <div className="overflow-x-auto">
+          <table className="w-full border-separate border-spacing-y-3">
+            <thead>
+              <tr className="text-slate-500 text-xs font-semibold uppercase tracking-wider text-left">
+                <th className="px-4 pb-2">Question Details</th>
+                <th className="px-4 pb-2 w-32 text-center">Type</th>
+                <th className="px-4 pb-2 w-24 text-center">Marks</th>
+                <th className="px-4 pb-2 w-24 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedQuestions.map((q) => (
+                <tr 
+                  key={q._id} 
+                  className="group bg-slate-900 hover:bg-slate-800/80 transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-slate-900/50 rounded-xl"
+                >
+                  {/* Question Text */}
+                  <td className="p-4 first:rounded-l-xl border-y border-l border-slate-800/50 group-hover:border-slate-700/50">
+                    <div className="flex flex-col">
+                      <span 
+                        onClick={() => navigate(`/admin/questions/${q._id}`)}
+                        className="font-medium text-slate-200 hover:text-blue-400 cursor-pointer transition-colors line-clamp-2"
+                      >
+                        {q.questionText}
+                      </span>
+                      <span className="text-xs text-slate-500 mt-1.5 flex items-center gap-2">
+                        <span>Created {new Date(q.createdAt).toLocaleDateString()}</span>
+                        {/* Optional: Add difficulty dot here if you have that data */}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Type Badge */}
+                  <td className="p-4 border-y border-slate-800/50 group-hover:border-slate-700/50 text-center">
+                    {getTypeBadge(q.type)}
+                  </td>
+
+                  {/* Marks */}
+                  <td className="p-4 border-y border-slate-800/50 group-hover:border-slate-700/50 text-center">
+                    <span className="font-mono text-sm font-semibold text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                      {q.marks} pts
+                    </span>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="p-4 last:rounded-r-xl border-y border-r border-slate-800/50 group-hover:border-slate-700/50 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => navigate(`/admin/questions/${q._id}/edit`)}
+                        className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                        title="Edit Question"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(q._id)}
+                        disabled={deletingId === q._id}
+                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete Question"
+                      >
+                        {deletingId === q._id ? (
+                          <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-              <tbody>
-                {paginatedQuestions.map((q) => {
-                  const typeStyles = {
-                    mcq: "border-l-blue-500 text-blue-400 bg-blue-500/10",
-                    descriptive:
-                      "border-l-purple-500 text-purple-400 bg-purple-500/10",
-                    coding: "border-l-red-500 text-red-400 bg-red-500/10",
-                  };
-
-                  return (
-                    <tr
-                      key={q._id}
-                      className="border-b border-slate-900 hover:bg-slate-900/40 transition"
-                    >
-                      <td className="px-6 py-5 max-w-xl">
-                        <p
-                          className="font-semibold text-blue-400 hover:underline cursor-pointer line-clamp-2"
-                          onClick={() => navigate(`/admin/questions/${q._id}`)}
-                        >
-                          {q.questionText}
-                        </p>
-                      </td>
-
-                      <td className="px-6 py-5">
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border-l-4 ${
-                            typeStyles[q.type]
-                          }`}
-                        >
-                          {q.type}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-5 text-center font-bold">
-                        {q.marks}
-                      </td>
-
-                      <td className="px-6 py-5 text-slate-400">
-                        {new Date(q.createdAt).toLocaleDateString()}
-                      </td>
-
-                      <td className="px-6 py-5 text-right space-x-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            navigate(`/admin/questions/${q._id}/edit`)
-                          }
-                        >
-                          ✏️ Edit
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-400"
-                          disabled={deletingId === q._id}
-                          onClick={() => handleDelete(q._id)}
-                        >
-                          {deletingId === q._id ? "…" : "🗑 Delete"}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Card>
-
-          {/* PAGINATION */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-2">
-              {/* PREVIOUS */}
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-                className="disabled:opacity-40"
-              >
-                ← Prev
-              </Button>
-
-              {/* PAGE DOTS */}
-              <div className="flex items-center gap-2">
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  const page = index + 1;
-                  const isActive = page === currentPage;
-
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-2.5 h-2.5 rounded-full transition
-              ${
-                isActive
-                  ? "bg-blue-500 scale-125"
-                  : "bg-slate-600 hover:bg-slate-400"
-              }`}
-                      aria-label={`Go to page ${page}`}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* NEXT */}
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="disabled:opacity-40"
-              >
-                Next →
-              </Button>
-            </div>
-          )}
-        </>
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-800 pt-6 mt-6">
+          <p className="text-sm text-slate-500">
+            Page <span className="text-slate-300 font-medium">{currentPage}</span> of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="flex items-center gap-1"
+            >
+              <ChevronLeft size={16} /> Prev
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="flex items-center gap-1"
+            >
+              Next <ChevronRight size={16} />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
