@@ -50,6 +50,39 @@ export default function initSockets(io) {
         console.error("Termination error:", err);
       }
     });
+
+  socket.on("candidate:self_terminate", async ({ attemptId, reason }) => {
+      try {
+        console.log(`[Socket] Self-termination requested for ${attemptId}`);
+        const attempt = await TestAttempt.findById(attemptId);
+
+        if (attempt && attempt.status !== "terminated") {
+          attempt.status = "terminated";
+          attempt.terminationReason = reason || "Auto-terminated by system";
+          attempt.submittedAt = new Date();
+
+          // Calculate score before closing
+          await attempt.calculateScore();
+          await attempt.calculateTotalMarks();
+
+          await attempt.save();
+
+          // Notify Admin
+          io.to(attempt.test.toString()).emit("candidate:update", { 
+            attemptId, 
+            status: "terminated" 
+          });
+          
+          // Notify Admin Room specifically
+          io.to(attemptId).emit("admin:notification", {
+             message: `Candidate system terminated: ${reason}`
+          });
+        }
+      } catch (err) {
+        console.error("Self Termination error:", err);
+      }
+    });
+
     socket.on("webrtc:offer", ({ attemptId, offer }) => {
       socket.to(attemptId).emit("webrtc:offer", offer);
     });

@@ -1,49 +1,88 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { reportViolation } from "../services/violations";
 import { captureSnapshot } from "../utils/camera";
 import { verifyFace } from "../services/candidateApi";
 import { toast } from "react-toastify";
 
-const useProctoring = (attemptId, testId, videoRef, isSubmitted = false) => {
+// 🔴 CONFIGURATION
+const MAX_VIOLATIONS_ALLOWED = 3; // Auto-terminate after 5 strikes
+
+const useProctoring = (
+  attemptId,
+  testId,
+  videoRef,
+  isSubmitted,
+  setFullscreenStatus, // New Callback: To lock/unlock UI
+  onAutoTerminate    // New Callback: To kill exam
+) => {
+  const violationCountRef = useRef(0);
+
   useEffect(() => {
     if (!attemptId || !testId || isSubmitted) return;
 
     const handleViolation = (type) => {
-      console.log(`Violation detected: ${type}`);
-      const image = videoRef?.current
-        ? captureSnapshot(videoRef.current)
-        : null;
+      // 1. Increment Count
+      violationCountRef.current += 1;
+      const currentCount = violationCountRef.current;
+
+      console.log(`Violation: ${type} | Count: ${currentCount}`);
+
+      // 2. Report to Backend (Always do this)
+      const image = videoRef?.current ? captureSnapshot(videoRef.current) : null;
       reportViolation(attemptId, testId, type, image);
 
-      let warningMsg = "Proctoring violation detected!";
-      if (type === "tab_switch") {
-        warningMsg =
-          "Tab switching detected! Repeated violations will lead to termination.";
-      } else if (type === "fullscreen_exit") {
-        warningMsg =
-          "You exited fullscreen! Repeated violations will lead to termination.";
-      } else if (type === "window_blur") {
-        warningMsg = "Window focus lost! Please stay on the test window.";
-      } else if (type === "copy_attempt" || type === "paste_attempt") {
-        warningMsg = "Copy/Paste is disabled during the exam.";
-      } else if (type === "devtools_detected") {
-        warningMsg = "Developer tools detected! This is a severe violation.";
-      } else if (type === "face_mismatch") {
-        warningMsg = "Face verification failed! Please match your ID card.";
+      // 3. AUTO-TERMINATION CHECK
+      if (currentCount > MAX_VIOLATIONS_ALLOWED) {
+        onAutoTerminate(`System detected ${currentCount} violations. Limit exceeded.`);
+        return; // Stop processing further warnings
       }
 
-      toast.warning(warningMsg, {
-        position: "top-center",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      let warningMsg = "";
+      let shouldToast = true;
+
+      switch (type) {
+        case "tab_switch":
+          warningMsg = `Tab switching detected! (${currentCount}/${MAX_VIOLATIONS_ALLOWED})`;
+          break;
+        case "fullscreen_exit":
+          warningMsg = `Fullscreen exited! Return immediately. (${currentCount}/${MAX_VIOLATIONS_ALLOWED})`;
+          break;
+        case "window_blur":
+          shouldToast = false; 
+          break;
+        case "copy_attempt":
+        case "paste_attempt":
+          warningMsg = "Copy/Paste is disabled.";
+          break;
+        case "devtools_detected":
+          warningMsg = "Developer tools detected! Severe violation.";
+          break;
+        case "face_mismatch":
+          warningMsg = "Face verification failed! Please look at the screen.";
+          break;
+        default:
+          warningMsg = "Proctoring violation detected!";
+      }
+
+      if (shouldToast) {
+        toast.warning(warningMsg, {
+          position: "top-center",
+          autoClose: 4000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+        });
+      }
     };
 
+
     const onFullscreenChange = () => {
-      if (!document.fullscreenElement) {
+      const isFull = !!document.fullscreenElement;
+      setFullscreenStatus(isFull);
+
+      if (!isFull) {
         handleViolation("fullscreen_exit");
       }
     };
@@ -70,7 +109,7 @@ const useProctoring = (attemptId, testId, videoRef, isSubmitted = false) => {
 
     const devToolsInterval = setInterval(() => {
       const start = performance.now();
-
+      debugger;
       const end = performance.now();
       if (end - start > 100) {
         handleViolation("devtools_detected");
@@ -85,7 +124,6 @@ const useProctoring = (attemptId, testId, videoRef, isSubmitted = false) => {
             const res = await verifyFace(attemptId, image);
             if (res.data && res.data.match === false) {
               handleViolation("face_mismatch");
-              clearInterval(faceCheckInterval);
             }
           } catch (err) {
             console.error("Face check error", err);
@@ -102,13 +140,14 @@ const useProctoring = (attemptId, testId, videoRef, isSubmitted = false) => {
 
     return () => {
       clearInterval(devToolsInterval);
+      clearInterval(faceCheckInterval);
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("copy", onCopy);
       document.removeEventListener("paste", onPaste);
     };
-  }, [attemptId, testId, isSubmitted, videoRef]);
+  }, [attemptId, testId, isSubmitted, videoRef, setFullscreenStatus, onAutoTerminate]);
 };
 
 export default useProctoring;
