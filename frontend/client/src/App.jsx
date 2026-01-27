@@ -13,6 +13,7 @@ import Instructions from "./pages/Instructions";
 import PreCheck from "./pages/PreCheck";
 import CandidateExam from "./pages/CandidateExam";
 import SubmissionSuccess from "./pages/SubmissionSuccess";
+import TestRegistration from "./pages/public/TestRegistration";
 
 /* Admin */
 import AdminLayout from "./admin/layout/AdminLayout";
@@ -47,6 +48,7 @@ function App() {
         <ExamProvider>
           <LiveStreamsProvider>
           <Routes>
+            <Route path="/register/:id" element={<TestRegistration />} />
             {/* =======================
                 Candidate Routes
             ======================= */}

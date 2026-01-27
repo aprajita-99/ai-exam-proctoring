@@ -23,10 +23,15 @@ const testSchema = new mongoose.Schema(
       required: true,
     },
 
+    isPublic: {
+      type: Boolean,
+      default: false, // false = Manual add only, true = Public Link
+    },
+
     supportedLanguages: {
       type: [String],
       enum: ["cpp", "python", "java"],
-      default: ["cpp", "python", "java"], // Default to all
+      default: ["cpp", "python", "java"],
     },
 
     totalScore: {
@@ -47,9 +52,6 @@ const testSchema = new mongoose.Schema(
       required: true,
     },
 
-    /**
-     * 🔐 Access Control List
-     */
     allowedCandidates: [
       {
         email: {
@@ -58,23 +60,28 @@ const testSchema = new mongoose.Schema(
           lowercase: true,
           trim: true,
         },
-
+        name: {
+          type: String, // Added name for public registration
+          trim: true,
+        },
         passcodeHash: {
           type: String,
           required: true,
         },
-
         hasAttempted: {
           type: Boolean,
           default: false,
         },
+        registeredAt: {
+          type: Date,
+          default: Date.now,
+        }
       },
     ],
   },
   { timestamps: true }
 );
 
-// Method to calculate total score
 testSchema.methods.calculateTotalScore = async function () {
   await this.populate("questions");
   this.totalScore = this.questions.reduce((sum, q) => sum + (q.marks || 0), 0);

@@ -1,5 +1,6 @@
 import express from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto"; // 1. Added crypto for random passcode generation
 import Test from "../models/Test.js";
 import generateTestId from "../utils/generateTestId.js";
 import { authenticate } from "../middleware/auth.middleware.js";
@@ -7,6 +8,72 @@ import { authorize } from "../middleware/role.middleware.js";
 import validateEmail from "../utils/validateEmail.js";
 
 const router = express.Router();
+
+/**
+ * ===============================
+ * PUBLIC: CANDIDATE SELF-REGISTRATION
+ * ===============================
+ * No Auth Middleware! Anyone with the link can access.
+ */
+router.post("/register/:id", async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    const testId = req.params.id;
+
+    if (!email || !name) {
+      return res.status(400).json({ message: "Name and Email are required" });
+    }
+
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({ message: "Test not found" });
+    }
+
+    // 1. Check Permissions
+    if (!test.isPublic) {
+      return res.status(403).json({ message: "Public registration is closed for this test." });
+    }
+
+    // 2. Check Expiry
+    if (new Date(test.activeTill) < new Date()) {
+      return res.status(400).json({ message: "This test has expired." });
+    }
+
+    // 3. Check Duplicate
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = test.allowedCandidates.find((c) => c.email === normalizedEmail);
+    if (existing) {
+      return res.status(400).json({ message: "You are already registered for this test." });
+    }
+
+    // 4. Generate Passcode & Hash
+    const passcode = crypto.randomBytes(3).toString("hex").toUpperCase(); // 6 chars
+    const passcodeHash = await bcrypt.hash(passcode, 10);
+
+    // 5. Add Candidate
+    test.allowedCandidates.push({
+      email: normalizedEmail,
+      name,
+      passcodeHash,
+      hasAttempted: false,
+    });
+
+    await test.save();
+
+    // 6. Return Passcode (Only time the user sees it)
+    res.json({
+      success: true,
+      message: "Registration successful",
+      testTitle: test.title,
+      email: normalizedEmail,
+      passcode, 
+    });
+
+  } catch (err) {
+    console.error("Public registration error:", err);
+    res.status(500).json({ message: "Registration failed" });
+  }
+});
 
 /**
  * ===============================
@@ -25,6 +92,7 @@ router.post("/", authenticate, authorize("admin"), async (req, res) => {
       allowedCandidates,
       activeTill,
       supportedLanguages,
+      isPublic, // Extract isPublic
     } = req.body;
 
     /* ---------- Validation ---------- */
@@ -34,9 +102,10 @@ router.post("/", authenticate, authorize("admin"), async (req, res) => {
       });
     }
 
-    if (!Array.isArray(allowedCandidates) || allowedCandidates.length === 0) {
+    // Modified Logic: Candidates are only required if test is NOT public
+    if (!isPublic && (!Array.isArray(allowedCandidates) || allowedCandidates.length === 0)) {
       return res.status(400).json({
-        message: "At least one allowed candidate is required",
+        message: "At least one allowed candidate is required for private tests",
       });
     }
 
@@ -64,28 +133,28 @@ router.post("/", authenticate, authorize("admin"), async (req, res) => {
     /* ---------- Process allowed candidates ---------- */
     const processedCandidates = [];
 
-    for (const entry of allowedCandidates) {
-      const { email, passcode } = entry;
+    // Only process if candidates are provided
+    if (Array.isArray(allowedCandidates) && allowedCandidates.length > 0) {
+      for (const entry of allowedCandidates) {
+        const { email, passcode } = entry;
 
-      if (!email || !passcode) {
-        return res.status(400).json({
-          message: "Each candidate must have an email and passcode",
+        // Skip incomplete entries (useful if UI sends empty rows)
+        if (!email || !passcode) continue; 
+
+        if (!validateEmail(email)) {
+          return res.status(400).json({
+            message: `Invalid email format: ${email}`,
+          });
+        }
+
+        const passcodeHash = await bcrypt.hash(passcode, 10);
+
+        processedCandidates.push({
+          email: email.toLowerCase().trim(),
+          passcodeHash,
+          hasAttempted: false,
         });
       }
-
-      if (!validateEmail(email)) {
-        return res.status(400).json({
-          message: `Invalid email format: ${email}`,
-        });
-      }
-
-      const passcodeHash = await bcrypt.hash(passcode, 10);
-
-      processedCandidates.push({
-        email: email.toLowerCase().trim(),
-        passcodeHash,
-        hasAttempted: false,
-      });
     }
 
     /* ---------- Generate collision-safe Test ID ---------- */
@@ -107,6 +176,7 @@ router.post("/", authenticate, authorize("admin"), async (req, res) => {
       supportedLanguages: supportedLanguages || ["cpp", "python", "java"],
       allowedCandidates: processedCandidates,
       createdBy: req.user.id,
+      isPublic: !!isPublic, // Save the public status
     });
 
     await test.calculateTotalScore();
@@ -177,11 +247,17 @@ router.get("/:id", authenticate, authorize("admin"), async (req, res) => {
  */
 router.put("/:id", authenticate, authorize("admin"), async (req, res) => {
   try {
-    const { title, duration, activeTill } = req.body;
+    const { title, duration, activeTill, isPublic } = req.body;
     const updateData = {};
 
     if (title) updateData.title = title;
     if (duration) updateData.duration = duration;
+    
+    // Add logic for isPublic toggle
+    if (typeof isPublic === 'boolean') {
+        updateData.isPublic = isPublic;
+    }
+
     if (activeTill) {
       const expiryDate = new Date(activeTill);
       if (isNaN(expiryDate.getTime()) || expiryDate <= new Date()) {
