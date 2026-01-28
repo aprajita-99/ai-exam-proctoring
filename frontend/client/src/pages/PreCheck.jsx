@@ -16,7 +16,7 @@ const PreCheck = () => {
   const canvasRef = useRef(null);
 
   const [idCard, setIdCard] = useState(
-    examState?.candidate?.idCardImage || null
+    examState?.candidate?.idCardImage || null,
   );
   const [isUploading, setIsUploading] = useState(false);
 
@@ -78,15 +78,23 @@ const PreCheck = () => {
 
   /* ================= CAMERA ================= */
   useEffect(() => {
+    let streamRef = null;
     navigator.mediaDevices
       .getUserMedia({ video: true })
       .then((stream) => {
+        streamRef = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         setChecks((c) => ({ ...c, camera: true }));
       })
       .catch(() => {});
+
+    return () => {
+      if (streamRef) {
+        streamRef.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, []);
 
   const handleIdUpload = async (e) => {
@@ -103,7 +111,7 @@ const PreCheck = () => {
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
-        }
+        },
       );
       setIdCard(res.data.idCardImage);
       setExamState((prev) => ({
@@ -139,7 +147,7 @@ const PreCheck = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (verifyRes.data.message !== "Candidate verified successfully") {
@@ -197,10 +205,15 @@ const PreCheck = () => {
 
   /* ================= MICROPHONE ================= */
   useEffect(() => {
+    let audioStream = null;
+    let audioCtx = null;
+    let animationId = null;
+
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        const audioCtx = new AudioContext();
+        audioStream = stream;
+        audioCtx = new AudioContext();
         const analyser = audioCtx.createAnalyser();
         const mic = audioCtx.createMediaStreamSource(stream);
         mic.connect(analyser);
@@ -215,11 +228,23 @@ const PreCheck = () => {
           if (avg > 5) {
             setChecks((c) => ({ ...c, microphone: true }));
           }
-          requestAnimationFrame(tick);
+          animationId = requestAnimationFrame(tick);
         };
         tick();
       })
       .catch(() => {});
+
+    return () => {
+      if (audioStream) {
+        audioStream.getTracks().forEach((t) => t.stop());
+      }
+      if (audioCtx) {
+        audioCtx.close();
+      }
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
   }, []);
 
   /* ================= SCREEN CHECK ================= */
