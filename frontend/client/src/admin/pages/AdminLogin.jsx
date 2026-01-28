@@ -22,7 +22,30 @@ const AdminLogin = () => {
     name: "",
     email: "",
     password: "",
+    otp: "",
   });
+
+  const [showOtpInput, setShowOtpInput] = useState(false);
+
+  /* ===============================
+     SEND OTP
+  =============================== */
+  const handleSendOtp = async () => {
+    if (!formData.email) {
+      toast.error("Please enter email first");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post("/auth/send-otp-admin", { email: formData.email });
+      toast.success("OTP sent successfully");
+      setShowOtpInput(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ===============================
      LOCAL LOGIN / REGISTER
@@ -35,9 +58,15 @@ const AdminLogin = () => {
       return;
     }
 
-    if (!isLogin && !formData.name) {
-      toast.error("Name is required for registration");
-      return;
+    if (!isLogin) {
+      if (!formData.name) {
+        toast.error("Name is required for registration");
+        return;
+      }
+      if (!formData.otp) {
+        toast.error("OTP is required for registration");
+        return;
+      }
     }
 
     setLoading(true);
@@ -54,6 +83,7 @@ const AdminLogin = () => {
             name: formData.name,
             email: formData.email,
             password: formData.password,
+            otp: formData.otp,
           };
 
       const res = await api.post(endpoint, payload);
@@ -63,7 +93,7 @@ const AdminLogin = () => {
       sessionStorage.setItem("admin_user", JSON.stringify(res.data.user));
 
       toast.success(
-        isLogin ? "Admin login successful" : "Admin registered successfully"
+        isLogin ? "Admin login successful" : "Admin registered successfully",
       );
 
       navigate("/admin/dashboard");
@@ -182,6 +212,30 @@ const AdminLogin = () => {
             }
             required
           />
+
+          {!isLogin && (
+            <div className="flex gap-2 items-end">
+              <div className="flex-grow">
+                <Input
+                  label="OTP"
+                  placeholder="Enter OTP"
+                  value={formData.otp}
+                  onChange={(e) =>
+                    setFormData({ ...formData, otp: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={loading}
+                className="mb-[2px] h-[46px] whitespace-nowrap"
+              >
+                Send OTP
+              </Button>
+            </div>
+          )}
 
           <Button
             type="submit"

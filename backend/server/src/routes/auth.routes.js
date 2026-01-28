@@ -19,10 +19,12 @@ const router = express.Router();
 
 router.post("/admin/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, otp } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !password || !otp) {
+      return res
+        .status(400)
+        .json({ message: "All fields including OTP are required" });
     }
 
     if (!validateEmail(email)) {
@@ -33,6 +35,12 @@ router.post("/admin/register", async (req, res) => {
       return res
         .status(400)
         .json({ message: "Password must be at least 8 characters" });
+    }
+
+    // Verify OTP
+    const validOtp = await Otp.findOne({ email, otp });
+    if (!validOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
     const existing = await User.findOne({ email });
@@ -58,6 +66,9 @@ router.post("/admin/register", async (req, res) => {
       authProvider: "local",
       emailVerified: true,
     });
+
+    // Cleanup OTP
+    await Otp.deleteOne({ email });
 
     sendAdminWelcomeEmail(email, name).catch(console.error);
 
@@ -122,6 +133,40 @@ router.post("/admin/login", async (req, res) => {
   } catch (err) {
     console.error("Admin login error:", err);
     res.status(500).json({ message: "Login failed" });
+  }
+});
+
+/* ===============================
+   SEND OTP (ADMIN)
+=============================== */
+router.post("/send-otp-admin", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !validateEmail(email)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP
+    await Otp.findOneAndUpdate(
+      { email },
+      { otp, email },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    await sendOTPEmail(email, otp);
+
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("OTP Send error:", err);
+    res.status(500).json({ message: "Failed to send OTP" });
   }
 });
 
