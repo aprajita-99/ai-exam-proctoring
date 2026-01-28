@@ -8,6 +8,7 @@ import { authenticate } from "../middleware/auth.middleware.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import cloudinary from "../config/cloudinary.js";
 
 // Configure Multer for ID Card Uploads
 const storage = multer.diskStorage({
@@ -98,7 +99,7 @@ router.get(
         message: "Failed to fetch attempts",
       });
     }
-  }
+  },
 );
 
 /**
@@ -147,7 +148,7 @@ router.post("/join", async (req, res) => {
 
     /* ---------------- Email whitelist check ---------------- */
     const candidateEntry = test.allowedCandidates.find(
-      (c) => c.email === email.toLowerCase().trim()
+      (c) => c.email === email.toLowerCase().trim(),
     );
 
     if (!candidateEntry) {
@@ -160,7 +161,7 @@ router.post("/join", async (req, res) => {
     /* ---------------- Passcode verification ---------------- */
     const passcodeValid = await bcrypt.compare(
       passcode,
-      candidateEntry.passcodeHash
+      candidateEntry.passcodeHash,
     );
 
     if (!passcodeValid) {
@@ -321,7 +322,7 @@ router.post("/save/:attemptId", async (req, res) => {
 
     for (const incoming of answers) {
       const existing = attempt.answers.find(
-        (a) => a.question.toString() === incoming.question
+        (a) => a.question.toString() === incoming.question,
       );
 
       if (existing) {
@@ -384,7 +385,7 @@ router.post("/start/:attemptId", async (req, res) => {
     }
 
     const candidate = test.allowedCandidates.find(
-      (c) => c.email === attempt.candidateEmail
+      (c) => c.email === attempt.candidateEmail,
     );
 
     if (!candidate) {
@@ -501,7 +502,15 @@ router.post(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const imagePath = `uploads/id_cards/${req.file.filename}`;
+      // Upload to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "id_cards",
+      });
+
+      // Delete local file
+      fs.unlinkSync(req.file.path);
+
+      const idCardImageUrl = result.secure_url;
 
       // Update or Create User
       let user = await User.findOne({ email: attempt.candidateEmail });
@@ -512,22 +521,30 @@ router.post(
           role: "candidate",
           authProvider: "local",
           password: await bcrypt.hash(Math.random().toString(36).slice(-8), 10),
-          idCardImage: imagePath,
+          idCardImage: idCardImageUrl,
         });
       } else {
-        user.idCardImage = imagePath;
+        user.idCardImage = idCardImageUrl;
       }
       await user.save();
 
       res.json({
         message: "ID Card uploaded successfully",
-        idCardImage: imagePath,
+        idCardImage: idCardImageUrl,
       });
     } catch (err) {
+      // If error occurs and file exists, try to delete it
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (unlinkErr) {
+          console.error("Error deleting file after failure:", unlinkErr);
+        }
+      }
       console.error("ID Upload error:", err);
       res.status(500).json({ message: "Failed to upload ID card" });
     }
-  }
+  },
 );
 
 export default router;

@@ -38,7 +38,11 @@ const PreCheck = () => {
   useBlockBackNavigation(true);
 
   // Construct URL. Adjust port/host if needed based on environment
-  const idCardUrl = idCard ? `http://localhost:5000/${idCard}` : null;
+  const idCardUrl = idCard
+    ? idCard.startsWith("http")
+      ? idCard
+      : `http://localhost:5000/${idCard}`
+    : null;
 
   const faceStatus = useFaceDetection(videoRef, null, null, idCardUrl);
   const {
